@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.*
+
+# Project assets not for version control
+*.jpg
+*.jpeg
+*.png
+!src/assets/**
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

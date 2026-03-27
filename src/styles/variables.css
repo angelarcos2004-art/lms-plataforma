@@ -1,0 +1,46 @@
+:root {
+  /* Ramp principal — Vino / Borgoña */
+  --wine-50: #FDF8F8;
+  --wine-100: #F0D0D6;
+  --wine-200: #D4899A;
+  --wine-400: #A84558;
+  --wine-600: #7B2D3B;
+  --wine-800: #5C1A28;
+  --wine-900: #3A0F19;
+
+  /* Acento dorado */
+  --gold: #C9A84C;
+
+  /* Estados funcionales */
+  --success: #16A34A;
+  --warning: #EAB308;
+  --error: #DC2626;
+  --info: #2563EB;
+
+  /* Fondos */
+  --bg-page: #F1F0F0;
+  --bg-card: #FFFFFF;
+  --bg-section: #FDF8F8;
+
+  /* Texto */
+  --text-primary: #1E1E1E;
+  --text-secondary: #6B7280;
+  --text-on-wine: #FFFFFF;
+  --text-on-gold: #3A0F19;
+}
+
+[data-theme="dark"] {
+  --wine-50: #3A0F19;
+  --wine-100: #5C1A28;
+  --wine-200: #7B2D3B;
+  --wine-400: #A84558;
+  --wine-600: #D4899A;
+  --wine-800: #F0D0D6;
+  --wine-900: #FDF8F8;
+  --bg-page: #1A1A1A;
+  --bg-card: #2A2A2A;
+  --bg-section: #222222;
+  --text-primary: #F1F0F0;
+  --text-secondary: #9CA3AF;
+  --text-on-wine: #1E1E1E;
+}

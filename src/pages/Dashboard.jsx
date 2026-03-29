@@ -4,7 +4,7 @@ export default function Dashboard() {
   const { user, profile, signOut } = useAuth()
 
   const rolLabel = profile?.roles?.nombre ?? 'estudiante'
-  const displayName = profile?.nombre_completo ?? user?.email ?? 'Usuario'
+  const displayName = profile?.nombre_completo ?? user?.user_metadata?.nombre ?? user?.user_metadata?.full_name ?? user?.email ?? 'Usuario'
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
@@ -21,9 +21,18 @@ export default function Dashboard() {
           boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: '1.25rem', letterSpacing: '-0.02em' }}>
-          EduLMS
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '6px',
+            background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '4px'
+          }}>
+            <img src="/logo-paideia.png" alt="Paideia Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: '1.25rem', letterSpacing: '-0.02em' }}>
+            Paideia
+          </span>
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ fontSize: '0.875rem', opacity: 0.75 }}>{displayName}</span>

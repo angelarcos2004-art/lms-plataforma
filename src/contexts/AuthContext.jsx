@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
 
   useEffect(() => {
     // Leer sesión existente al montar
@@ -19,7 +20,10 @@ export function AuthProvider({ children }) {
 
     // Escuchar cambios de sesión en tiempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsRecoveringPassword(true)
+        }
         setSession(session)
         setUser(session?.user ?? null)
         if (session?.user) fetchProfile(session.user.id)
@@ -47,13 +51,44 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  async function signInWithPassword(email, password) {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+  }
+
+  async function signUp(email, password, nombre) {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { nombre } },
+    })
+    if (error) throw error
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
+  async function resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    if (error) throw error
+  }
+
+  async function updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+    setIsRecoveringPassword(false)
+  }
+
   return (
-    <AuthContext.Provider value={{ session, user, profile, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{
+      session, user, profile, isRecoveringPassword,
+      signInWithGoogle, signInWithPassword, signUp, signOut,
+      resetPassword, updatePassword
+    }}>
       {children}
     </AuthContext.Provider>
   )

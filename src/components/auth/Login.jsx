@@ -9,9 +9,25 @@ const SPIN_KEYFRAME = `
 `
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, signInWithPassword, signUp, resetPassword } = useAuth()
+  const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot_password'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+
+  // Campos
+  const [nombre, setNombre] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  function switchMode(next) {
+    setMode(next)
+    setError(null)
+    setSuccess(null)
+    setNombre('')
+    setEmail('')
+    setPassword('')
+  }
 
   async function handleGoogleSignIn() {
     try {
@@ -19,7 +35,60 @@ export default function Login() {
       setError(null)
       await signInWithGoogle()
     } catch {
-      setError('No se pudo iniciar sesión. Intenta de nuevo.')
+      setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailLogin(e) {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      setError(null)
+
+      await signInWithPassword(email, password)
+    } catch (err) {
+      setError(err.message === 'Invalid login credentials'
+        ? 'Correo o contraseña incorrectos.'
+        : 'No se pudo iniciar sesión. Intenta de nuevo.')
+      setLoading(false)
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault()
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+    try {
+      setLoading(true)
+      setError(null)
+      await signUp(email, password, nombre)
+      setSuccess('Cuenta creada. Revisa tu correo para confirmar tu cuenta.')
+      setLoading(false)
+    } catch (err) {
+      setError(err.message.includes('already registered')
+        ? 'Este correo ya está registrado.'
+        : 'No se pudo crear la cuenta. Intenta de nuevo.')
+      setLoading(false)
+    }
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault()
+    if (!email) {
+      setError('Por favor ingresa tu correo electrónico.')
+      return
+    }
+    try {
+      setLoading(true)
+      setError(null)
+      await resetPassword(email)
+      setSuccess('Si el correo existe, recibirás un enlace de recuperación en breve.')
+      setLoading(false)
+    } catch {
+      setError('No se pudo enviar el enlace de recuperación. Intenta de nuevo.')
       setLoading(false)
     }
   }
@@ -28,111 +97,65 @@ export default function Login() {
     <>
       <style>{SPIN_KEYFRAME}</style>
 
-      {/* Pantalla completa centrada */}
-      <div
-        style={{
-          minHeight: '100vh',
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          background: 'linear-gradient(135deg, var(--wine-800) 0%, var(--wine-900) 100%)',
-        }}
-      >
-        {/* Blob — arriba derecha */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-8%',
-            right: '-4%',
-            width: '420px',
-            height: '420px',
-            borderRadius: '9999px',
-            background: 'var(--wine-400)',
-            opacity: 0.25,
-            filter: 'blur(64px)',
-            pointerEvents: 'none',
-          }}
-        />
+      {/* Pantalla completa */}
+      <div style={{
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, var(--wine-800) 0%, var(--wine-900) 100%)',
+      }}>
 
-        {/* Blob — abajo izquierda */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '-6%',
-            left: '-4%',
-            width: '340px',
-            height: '340px',
-            borderRadius: '9999px',
-            background: 'var(--gold)',
-            opacity: 0.18,
-            filter: 'blur(64px)',
-            pointerEvents: 'none',
-          }}
-        />
+        {/* Blob arriba derecha */}
+        <div style={{
+          position: 'absolute', top: '-8%', right: '-4%',
+          width: '420px', height: '420px', borderRadius: '9999px',
+          background: 'var(--wine-400)', opacity: 0.25, filter: 'blur(64px)', pointerEvents: 'none',
+        }} />
 
-        {/* Blob — centro izquierda */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '38%',
-            left: '8%',
-            width: '200px',
-            height: '200px',
-            borderRadius: '9999px',
-            background: 'var(--wine-200)',
-            opacity: 0.12,
-            filter: 'blur(40px)',
-            pointerEvents: 'none',
-          }}
-        />
+        {/* Blob abajo izquierda */}
+        <div style={{
+          position: 'absolute', bottom: '-6%', left: '-4%',
+          width: '340px', height: '340px', borderRadius: '9999px',
+          background: 'var(--gold)', opacity: 0.18, filter: 'blur(64px)', pointerEvents: 'none',
+        }} />
+
+        {/* Blob centro izquierda */}
+        <div style={{
+          position: 'absolute', top: '38%', left: '8%',
+          width: '200px', height: '200px', borderRadius: '9999px',
+          background: 'var(--wine-200)', opacity: 0.12, filter: 'blur(40px)', pointerEvents: 'none',
+        }} />
 
         {/* Tarjeta glassmorphism */}
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 10,
-            width: '100%',
-            maxWidth: '420px',
-            margin: '0 1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2rem',
-            borderRadius: '1.5rem',
-            padding: '2.5rem',
-            background: 'rgba(255, 255, 255, 0.12)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.45)',
-          }}
-        >
-          {/* Logo y nombre */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, var(--wine-400), var(--wine-600))',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-              }}
-            >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                <path d="M6 12v5c3 3 9 3 12 0v-5" />
-              </svg>
-            </div>
+        <div style={{
+          position: 'relative', zIndex: 10,
+          width: '100%', maxWidth: '420px', margin: '0 1rem',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem',
+          borderRadius: '1.5rem', padding: '2.5rem',
+          background: 'rgba(255, 255, 255, 0.12)',
+          backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.45)',
+        }}>
 
+          {/* Logo */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              width: '80px', height: '80px', borderRadius: '16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'white',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              padding: '8px'
+            }}>
+              <img src="/logo-paideia.png" alt="Paideia Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
             <div style={{ textAlign: 'center' }}>
               <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'white' }}>
-                EduLMS
+                Paideia
               </h1>
               <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
                 Plataforma de aprendizaje en línea
@@ -140,28 +163,122 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Separador */}
-          <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.15)' }} />
+          {/* Tabs */}
+          {mode !== 'forgot_password' && (
+            <div style={{
+              width: '100%', display: 'flex', gap: '0',
+              background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', padding: '4px',
+            }}>
+              {['login', 'register'].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => switchMode(m)}
+                  style={{
+                    flex: 1, padding: '0.5rem',
+                    borderRadius: '0.6rem', border: 'none',
+                    fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
+                    transition: 'background 0.2s, color 0.2s',
+                    background: mode === m ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    color: mode === m ? 'white' : 'rgba(255,255,255,0.5)',
+                  }}
+                >
+                  {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Texto de bienvenida */}
-          <div style={{ textAlign: 'center' }}>
-            <h2 style={{ margin: '0 0 6px', fontSize: '1.2rem', fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
-              Bienvenido de vuelta
-            </h2>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)' }}>
-              Accede con tu cuenta institucional de Google
-            </p>
-          </div>
+          {/* Formulario login */}
+          {mode === 'login' && (
+            <form onSubmit={handleEmailLogin} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <InputField
+                type="email" placeholder="Correo electrónico"
+                value={email} onChange={e => setEmail(e.target.value)} required
+              />
+              <InputField
+                type="password" placeholder="Contraseña"
+                value={password} onChange={e => setPassword(e.target.value)} required
+              />
 
-          {/* Botón Google */}
-          <GoogleButton loading={loading} onClick={handleGoogleSignIn} />
+              <SubmitButton loading={loading} label="Inicia sesión" />
 
-          {/* Mensaje de error */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ width: '170px', textAlign: 'right' }}>¿Olvidaste tu contraseña?</span>
+                  <a href="#" onClick={(e) => { e.preventDefault(); switchMode('forgot_password'); }} style={{ width: '90px', textAlign: 'left', color: 'var(--gold)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Haz clic aquí</a>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ width: '170px', textAlign: 'right' }}>¿Eres nuevo aquí?</span>
+                  <a href="#" onClick={(e) => { e.preventDefault(); switchMode('register'); }} style={{ width: '90px', textAlign: 'left', color: 'var(--gold)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Regístrate</a>
+                </div>
+              </div>
+            </form>
+          )}
+
+          {/* Formulario registro */}
+          {mode === 'register' && (
+            <form onSubmit={handleRegister} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <InputField
+                type="text" placeholder="Nombre completo"
+                value={nombre} onChange={e => setNombre(e.target.value)} required
+              />
+              <InputField
+                type="email" placeholder="Correo electrónico"
+                value={email} onChange={e => setEmail(e.target.value)} required
+              />
+              <InputField
+                type="password" placeholder="Contraseña (mínimo 6 caracteres)"
+                value={password} onChange={e => setPassword(e.target.value)} required
+              />
+              <SubmitButton loading={loading} label="Registrarse" />
+
+              <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
+                ¿Ya tienes una cuenta?&nbsp;&nbsp;<a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }} style={{ color: 'var(--gold)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Inicia sesión</a>
+              </div>
+            </form>
+          )}
+
+          {/* Formulario Recuperar Contraseña */}
+          {mode === 'forgot_password' && (
+            <form onSubmit={handleResetPassword} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '0.5rem', color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem' }}>
+                Ingresa tu correo y te enviaremos un enlace mágico para recuperar el acceso a tu cuenta.
+              </div>
+              <InputField
+                type="email" placeholder="Correo electrónico"
+                value={email} onChange={e => setEmail(e.target.value)} required
+              />
+              <SubmitButton loading={loading} label="Enviar enlace de recuperación" />
+
+              <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
+                ¿Lo recordaste?&nbsp;&nbsp;<a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }} style={{ color: 'var(--gold)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Volver a Iniciar sesión</a>
+              </div>
+            </form>
+          )}
+
+          {/* Mensajes */}
           {error && (
             <p style={{ margin: 0, fontSize: '0.875rem', textAlign: 'center', color: '#FCA5A5' }}>
               {error}
             </p>
           )}
+          {success && (
+            <p style={{ margin: 0, fontSize: '0.875rem', textAlign: 'center', color: '#86EFAC' }}>
+              {success}
+            </p>
+          )}
+
+          {/* Divisor */}
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>
+              o continuar con
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.15)' }} />
+          </div>
+
+          {/* Botón Google */}
+          <GoogleButton loading={loading} onClick={handleGoogleSignIn} />
 
           {/* Footer */}
           <p style={{ margin: 0, fontSize: '0.72rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
@@ -173,57 +290,81 @@ export default function Login() {
   )
 }
 
+function InputField({ type, placeholder, value, onChange, required }) {
+  return (
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      required={required}
+      style={{
+        width: '100%', padding: '0.75rem 1rem',
+        borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.2)',
+        background: 'rgba(255,255,255,0.08)', color: 'white',
+        fontSize: '0.9rem', outline: 'none',
+        boxSizing: 'border-box',
+        transition: 'border-color 0.2s',
+      }}
+      onFocus={e => e.target.style.borderColor = 'rgba(255,255,255,0.5)'}
+      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.2)'}
+    />
+  )
+}
+
+function SubmitButton({ loading, label }) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      style={{
+        width: '100%', padding: '0.85rem',
+        borderRadius: '0.75rem', border: 'none',
+        background: loading ? 'var(--wine-200)' : 'var(--wine-600)',
+        color: 'white', fontWeight: 600, fontSize: '0.95rem',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.7 : 1,
+        transition: 'background 0.2s',
+      }}
+    >
+      {loading ? 'Procesando...' : label}
+    </button>
+  )
+}
+
 function GoogleButton({ loading, onClick }) {
   const [hovered, setHovered] = useState(false)
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={loading}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.75rem',
-        padding: '1rem 1.5rem',
-        borderRadius: '1rem',
-        fontWeight: 600,
-        fontSize: '1rem',
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: '0.75rem', padding: '0.85rem 1.5rem',
+        borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.95rem',
         cursor: loading ? 'not-allowed' : 'pointer',
-        border: '1px solid rgba(255,255,255,0.15)',
-        color: 'white',
-        background: loading
-          ? 'var(--wine-200)'
-          : hovered
-          ? 'var(--wine-800)'
-          : 'var(--wine-600)',
-        boxShadow: hovered && !loading
-          ? '0 8px 25px rgba(0,0,0,0.4)'
-          : '0 4px 15px rgba(0,0,0,0.25)',
+        border: '1px solid rgba(255,255,255,0.15)', color: 'white',
+        background: loading ? 'var(--wine-200)' : hovered ? 'var(--wine-800)' : 'rgba(255,255,255,0.08)',
+        boxShadow: hovered && !loading ? '0 8px 25px rgba(0,0,0,0.4)' : '0 4px 15px rgba(0,0,0,0.25)',
         transform: hovered && !loading ? 'translateY(-2px)' : 'translateY(0)',
-        transition: 'background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease',
+        transition: 'background 0.25s, box-shadow 0.25s, transform 0.2s',
         opacity: loading ? 0.7 : 1,
       }}
     >
-      {loading ? <Spinner /> : <GoogleIcon />}
-      {loading ? 'Iniciando sesión...' : 'Iniciar sesión con Google'}
+      {loading ? <SpinnerIcon /> : <GoogleIcon />}
+      Google
     </button>
   )
 }
 
-function Spinner() {
+function SpinnerIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      style={{ animation: 'lms-spin 1s linear infinite' }}
-    >
+    <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+      style={{ animation: 'lms-spin 1s linear infinite' }}>
       <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>

@@ -21,6 +21,7 @@ dist-ssr
 *.jpeg
 *.png
 !src/assets/**
+!public/**
 
 # Editor directories and files
 .vscode/*

@@ -1,125 +1,219 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import Navbar from '../components/layout/Navbar'
+import CourseCard from '../components/courses/CourseCard'
 import { useAuth } from '../contexts/AuthContext'
+import { useRole } from '../hooks/useRole'
+import { getMisCursos, getCursosByDocente, getTodosCursos } from '../lib/coursesService'
+import { getAdminStats, getNotificaciones } from '../lib/socialService'
 
 export default function Dashboard() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile } = useAuth()
+  const { isAdmin, isDocente, isEstudiante } = useRole()
 
-  const rolLabel = profile?.roles?.nombre ?? 'estudiante'
-  const displayName = profile?.nombre_completo ?? user?.user_metadata?.nombre ?? user?.user_metadata?.full_name ?? user?.email ?? 'Usuario'
+  const [cursos, setCursos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adminStats, setAdminStats] = useState(null)
+  const [notifs, setNotifs] = useState([])
+
+  const displayName =
+    profile?.nombre_completo ??
+    user?.user_metadata?.nombre ??
+    user?.user_metadata?.full_name ??
+    user?.email ??
+    'Usuario'
+
+  useEffect(() => {
+    if (!user) return
+
+    async function cargar() {
+      let res
+      if (isEstudiante) {
+        res = await getMisCursos(user.id)
+        if (!res.error) setCursos((res.data ?? []).map(i => i.cursos).filter(Boolean))
+        const { data: nData } = await getNotificaciones(user.id, 5)
+        setNotifs(nData ?? [])
+      } else if (isDocente) {
+        res = await getCursosByDocente(user.id)
+        if (!res.error) setCursos(res.data ?? [])
+      } else if (isAdmin) {
+        res = await getTodosCursos()
+        if (!res.error) setCursos(res.data ?? [])
+        const stats = await getAdminStats()
+        setAdminStats(stats)
+      }
+      setLoading(false)
+    }
+    cargar()
+  }, [user, isEstudiante, isDocente, isAdmin])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
-      {/* Navbar */}
-      <header
-        style={{
-          background: 'var(--wine-800)',
-          color: 'white',
-          padding: '0 2rem',
-          height: '64px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '6px',
-            background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '4px'
-          }}>
-            <img src="/logo-paideia.png" alt="Paideia Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-          <span style={{ fontWeight: 700, fontSize: '1.25rem', letterSpacing: '-0.02em' }}>
-            Paideia
-          </span>
+      <Navbar />
+
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+        {/* Saludo */}
+        <div style={{ marginBottom: '2.5rem' }}>
+          <h1 style={{ margin: '0 0 0.25rem', color: 'var(--wine-800)', fontSize: '1.75rem', fontWeight: 800 }}>
+            ¡Hola, {displayName.split(' ')[0]}!
+          </h1>
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+            {isEstudiante && 'Aquí están tus cursos inscritos.'}
+            {isDocente && 'Gestiona tus cursos desde aquí.'}
+            {isAdmin && 'Vista general de todos los cursos en la plataforma.'}
+          </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.875rem', opacity: 0.75 }}>{displayName}</span>
-
-          <span
-            style={{
-              background: 'var(--gold)',
-              color: 'var(--wine-900)',
-              padding: '2px 10px',
-              borderRadius: '9999px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              textTransform: 'capitalize',
-              letterSpacing: '0.03em',
-            }}
-          >
-            {rolLabel}
-          </span>
-
-          <button
-            onClick={signOut}
-            style={{
-              background: 'rgba(255,255,255,0.12)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.2)',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '0.82rem',
-              transition: 'background 0.2s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.22)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
-
-      {/* Contenido placeholder */}
-      <main style={{ maxWidth: '1200px', margin: '2.5rem auto', padding: '0 1.5rem' }}>
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            borderRadius: '1rem',
-            padding: '3rem 2rem',
-            textAlign: 'center',
-            border: '1px solid var(--wine-100)',
-          }}
-        >
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, var(--wine-400), var(--wine-600))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.25rem',
-            }}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+        {/* Stats admin */}
+        {isAdmin && adminStats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            {[
+              { label: 'Usuarios', value: adminStats.totalUsuarios, color: 'var(--wine-600)' },
+              { label: 'Cursos', value: adminStats.totalCursos, color: 'var(--info)' },
+              { label: 'Inscripciones activas', value: adminStats.totalInscripciones, color: 'var(--success)' },
+            ].map(stat => (
+              <div key={stat.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem' }}>
+                <p style={{ margin: '0 0 0.25rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</p>
+                <span style={{ fontSize: '2rem', fontWeight: 800, color: stat.color }}>{stat.value}</span>
+              </div>
+            ))}
           </div>
+        )}
 
-          <h2
-            style={{
-              color: 'var(--wine-800)',
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              margin: '0 0 0.5rem',
-            }}
-          >
-            ¡Sesión iniciada correctamente!
+        {/* Notificaciones recientes (estudiante) */}
+        {isEstudiante && notifs.filter(n => !n.leida).length > 0 && (
+          <div style={{ marginBottom: '2rem', background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem' }}>
+            <h2 style={{ margin: '0 0 0.875rem', color: 'var(--wine-800)', fontSize: '1rem', fontWeight: 700 }}>Notificaciones recientes</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {notifs.filter(n => !n.leida).slice(0, 3).map(n => (
+                <div key={n.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.625rem 0.875rem', borderRadius: '0.5rem', background: 'var(--wine-50)', border: '1px solid var(--wine-100)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--wine-600)', marginTop: '6px', flexShrink: 0 }} />
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>{n.titulo}</p>
+                    {n.mensaje && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{n.mensaje}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sección de cursos */}
+        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <h2 style={{ margin: 0, color: 'var(--wine-800)', fontSize: '1.2rem', fontWeight: 700 }}>
+            {isEstudiante && 'Mis Cursos Inscritos'}
+            {isDocente && 'Mis Cursos'}
+            {isAdmin && 'Todos los Cursos'}
           </h2>
 
-          <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.25rem' }}>
-            Bienvenido, <strong style={{ color: 'var(--wine-600)' }}>{displayName}</strong>
-          </p>
-
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            El dashboard completo estará disponible en el Wave 2.
-          </p>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            {isEstudiante && (
+              <Link
+                to="/courses"
+                style={{
+                  padding: '0.5rem 1.25rem', borderRadius: '0.5rem',
+                  background: 'var(--wine-600)', color: 'white',
+                  textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600,
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--wine-800)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--wine-600)')}
+              >
+                Explorar catálogo
+              </Link>
+            )}
+            {(isDocente || isAdmin) && (
+              <Link
+                to="/courses/new"
+                style={{
+                  padding: '0.5rem 1.25rem', borderRadius: '0.5rem',
+                  background: 'var(--wine-600)', color: 'white',
+                  textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600,
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--wine-800)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--wine-600)')}
+              >
+                + Crear curso
+              </Link>
+            )}
+          </div>
         </div>
+
+        {/* Estado de carga */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+            Cargando cursos...
+          </div>
+        )}
+
+        {/* Estado vacío */}
+        {!loading && cursos.length === 0 && (
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--wine-100)',
+            borderRadius: '1rem', padding: '3rem 2rem', textAlign: 'center',
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '14px',
+              background: 'linear-gradient(135deg, var(--wine-400), var(--wine-600))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.25rem',
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+              </svg>
+            </div>
+            <h2 style={{ color: 'var(--wine-800)', fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem' }}>
+              {isEstudiante ? 'Aún no estás inscrito en ningún curso' : 'Aún no has creado ningún curso'}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 1.5rem', fontSize: '0.9rem' }}>
+              {isEstudiante ? 'Explora el catálogo y encuentra un curso que te interese.' : 'Crea tu primer curso para que los estudiantes puedan inscribirse.'}
+            </p>
+            {isEstudiante ? (
+              <Link
+                to="/courses"
+                style={{
+                  display: 'inline-block', padding: '0.625rem 1.5rem',
+                  background: 'var(--wine-600)', color: 'white',
+                  textDecoration: 'none', borderRadius: '0.5rem',
+                  fontWeight: 600, fontSize: '0.875rem',
+                }}
+              >
+                Ir al catálogo
+              </Link>
+            ) : (
+              <Link
+                to="/courses/new"
+                style={{
+                  display: 'inline-block', padding: '0.625rem 1.5rem',
+                  background: 'var(--wine-600)', color: 'white',
+                  textDecoration: 'none', borderRadius: '0.5rem',
+                  fontWeight: 600, fontSize: '0.875rem',
+                }}
+              >
+                Crear primer curso
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Grid de cursos */}
+        {!loading && cursos.length > 0 && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '1.5rem',
+          }}>
+            {cursos.map(curso => (
+              <CourseCard
+                key={curso.id}
+                curso={curso}
+                badge={isEstudiante ? 'Inscrito' : null}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )

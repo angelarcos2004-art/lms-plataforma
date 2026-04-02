@@ -1,7 +1,17 @@
 import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Login from './components/auth/Login'
 import Dashboard from './pages/Dashboard'
+import CourseCatalog from './pages/courses/CourseCatalog'
+import CourseDetail from './pages/courses/CourseDetail'
+import CourseForm from './pages/courses/CourseForm'
+import CourseContent from './pages/content/CourseContent'
+import TareaDetail from './pages/content/TareaDetail'
+import QuizForm from './pages/quiz/QuizForm'
+import QuizAttempt from './pages/quiz/QuizAttempt'
+import ForoPage from './pages/forum/ForoPage'
+import HiloPage from './pages/forum/HiloPage'
 
 function LoadingScreen() {
   return (
@@ -107,8 +117,26 @@ function App() {
   // intercepts dashboard entry if coming via password recovery
   if (isRecoveringPassword) return <UpdatePasswordScreen />
 
-  // sesión activa → dashboard
-  return <Dashboard />
+  // sesión activa → app con rutas
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/courses" element={<CourseCatalog />} />
+        <Route path="/courses/new" element={<CourseForm />} />
+        <Route path="/courses/:id/edit" element={<CourseForm />} />
+        <Route path="/courses/:id" element={<CourseDetail />} />
+        <Route path="/courses/:id/content" element={<CourseContent />} />
+        <Route path="/courses/:id/tareas/:tareaId" element={<TareaDetail />} />
+        <Route path="/courses/:id/cuestionarios/nuevo" element={<QuizForm />} />
+        <Route path="/courses/:id/cuestionarios/:quizId/editar" element={<QuizForm />} />
+        <Route path="/courses/:id/cuestionarios/:quizId" element={<QuizAttempt />} />
+        <Route path="/courses/:id/foro" element={<ForoPage />} />
+        <Route path="/courses/:id/foro/:hiloId" element={<HiloPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App

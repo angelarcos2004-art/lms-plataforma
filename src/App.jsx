@@ -12,6 +12,7 @@ import QuizForm from './pages/quiz/QuizForm'
 import QuizAttempt from './pages/quiz/QuizAttempt'
 import ForoPage from './pages/forum/ForoPage'
 import HiloPage from './pages/forum/HiloPage'
+import SoportePage from './pages/support/SoportePage'
 
 function LoadingScreen() {
   return (
@@ -133,6 +134,7 @@ function App() {
         <Route path="/courses/:id/cuestionarios/:quizId" element={<QuizAttempt />} />
         <Route path="/courses/:id/foro" element={<ForoPage />} />
         <Route path="/courses/:id/foro/:hiloId" element={<HiloPage />} />
+        <Route path="/soporte" element={<SoportePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

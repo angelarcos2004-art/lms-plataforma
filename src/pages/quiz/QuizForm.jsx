@@ -178,7 +178,7 @@ export default function QuizForm() {
         puntaje: parseFloat(p.puntaje) || 1,
         orden: (preguntas.filter(x => x._saved).length) + i + 1,
       })
-      if (pregErr) { setError('Error guardando pregunta.'); setSaving(false); return }
+      if (pregErr) { setError(`Error guardando pregunta: ${pregErr.message}`); setSaving(false); return }
 
       const opcionesPayload = p.opciones.map((o, j) => ({
         pregunta_id: pregData.id,
@@ -187,7 +187,7 @@ export default function QuizForm() {
         orden: j + 1,
       }))
       const { error: opErr } = await crearOpciones(opcionesPayload)
-      if (opErr) { setError('Error guardando opciones.'); setSaving(false); return }
+      if (opErr) { setError(`Error guardando opciones: ${opErr.message}`); setSaving(false); return }
     }
 
     navigate(`/courses/${cursoId}/content`)

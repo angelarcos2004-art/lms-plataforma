@@ -4,6 +4,7 @@ import Navbar from '../../components/layout/Navbar'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import { getHiloById, getMensajesByHilo, crearMensaje, eliminarMensaje } from '../../lib/socialService'
+import { supabase } from '../../lib/supabase'
 
 export default function HiloPage() {
   const { id: cursoId, hiloId } = useParams()
@@ -29,6 +30,21 @@ export default function HiloPage() {
       setLoading(false)
     }
     cargar()
+
+    const ch = supabase
+      .channel(`foro-hilo-${hiloId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mensajes_foro',
+        filter: `hilo_id=eq.${hiloId}`,
+      }, async () => {
+        const { data } = await getMensajesByHilo(hiloId)
+        setMensajes(data ?? [])
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(ch)
   }, [hiloId])
 
   useEffect(() => {

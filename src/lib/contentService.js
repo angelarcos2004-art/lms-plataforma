@@ -61,10 +61,10 @@ export async function getTareaById(id) {
     .single()
 }
 
-export async function crearTarea(unidadId, { titulo, instrucciones, fecha_limite, puntaje_maximo }) {
+export async function crearTarea(unidadId, { titulo, instrucciones, fecha_limite, fecha_cierre, puntaje_maximo }) {
   return supabase
     .from('tareas')
-    .insert({ unidad_id: unidadId, titulo, instrucciones, fecha_limite: fecha_limite || null, puntaje_maximo: puntaje_maximo || null })
+    .insert({ unidad_id: unidadId, titulo, instrucciones, fecha_limite: fecha_limite || null, fecha_cierre: fecha_cierre || null, puntaje_maximo: puntaje_maximo || null })
     .select()
     .single()
 }
@@ -73,8 +73,13 @@ export async function eliminarTarea(id) {
   return supabase.from('tareas').delete().eq('id', id)
 }
 
-export async function actualizarFechaTarea(id, fecha_limite) {
-  return supabase.from('tareas').update({ fecha_limite: fecha_limite || null }).eq('id', id).select().single()
+export async function actualizarFechasTarea(id, fecha_limite, fecha_cierre) {
+  return supabase
+    .from('tareas')
+    .update({ fecha_limite: fecha_limite || null, fecha_cierre: fecha_cierre || null })
+    .eq('id', id)
+    .select()
+    .single()
 }
 
 // ── Entregas ─────────────────────────────────────────────────────────────────
@@ -122,6 +127,19 @@ export async function crearEntrega(tareaId, estudianteId, contenido) {
     .single()
 }
 
+export async function actualizarEntrega(entregaId, contenido) {
+  return supabase
+    .from('entregas')
+    .update({ contenido_entrega: contenido, fecha_entrega: new Date().toISOString() })
+    .eq('id', entregaId)
+    .select()
+    .single()
+}
+
+export async function cancelarEntrega(entregaId) {
+  return supabase.from('entregas').delete().eq('id', entregaId)
+}
+
 // Subir archivo a storage (materiales o entregas)
 export async function subirArchivo(file, carpeta = 'materiales') {
   const fileExt = file.name.split('.').pop().toLowerCase()
@@ -136,6 +154,36 @@ export async function subirArchivo(file, carpeta = 'materiales') {
 
   const { data: { publicUrl } } = supabase.storage.from('archivos').getPublicUrl(filePath)
   return { data: publicUrl, error: null }
+}
+
+// ── Chat por tarea ────────────────────────────────────────────────────────────
+
+export async function getMensajesTarea(tareaId) {
+  const { data: msgs, error } = await supabase
+    .from('mensajes_tarea')
+    .select('id, tarea_id, autor_id, contenido, created_at')
+    .eq('tarea_id', tareaId)
+    .order('created_at', { ascending: true })
+
+  if (error || !msgs?.length) return { data: msgs ?? [], error }
+
+  const ids = [...new Set(msgs.map(m => m.autor_id))]
+  const { data: perfiles } = await supabase
+    .from('perfiles_publicos')
+    .select('id, nombre_completo')
+    .in('id', ids)
+
+  return {
+    data: msgs.map(m => ({ ...m, autor: perfiles?.find(p => p.id === m.autor_id) }))
+  }
+}
+
+export async function enviarMensajeTarea(tareaId, autorId, contenido) {
+  return supabase
+    .from('mensajes_tarea')
+    .insert({ tarea_id: tareaId, autor_id: autorId, contenido })
+    .select()
+    .single()
 }
 
 export async function calificarEntrega(entregaId, calificacion, retroalimentacion, calificadoPor) {

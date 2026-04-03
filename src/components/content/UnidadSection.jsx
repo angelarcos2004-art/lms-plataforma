@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialItem from './MaterialItem'
+import ConfirmModal from '../ui/ConfirmModal'
 import { crearMaterial, crearTarea, eliminarMaterial, eliminarTarea, subirArchivo } from '../../lib/contentService'
 import { eliminarCuestionario } from '../../lib/quizService'
 
@@ -22,10 +23,11 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
   const [matTipo, setMatTipo] = useState('texto') // 'texto' | 'enlace' | 'archivo'
   const [matForm, setMatForm] = useState({ titulo: '', contenido: '' })
   const [matArchivos, setMatArchivos] = useState([]) // [{ id, nombre, url, uploading, error }]
-  const [tareaForm, setTareaForm] = useState({ titulo: '', instrucciones: '', fecha_limite: '', puntaje_maximo: '' })
+  const [tareaForm, setTareaForm] = useState({ titulo: '', instrucciones: '', fecha_limite: '', fecha_cierre: '', puntaje_maximo: '' })
   const [savingMat, setSavingMat] = useState(false)
   const [savingTarea, setSavingTarea] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [confirmModal, setConfirmModal] = useState(null) // { title, description, confirmLabel, onConfirm }
 
   const materiales = [...(unidad.materiales ?? [])].sort((a, b) => a.orden - b.orden)
   const tareas = [...(unidad.tareas ?? [])].sort((a, b) => a.id - b.id)
@@ -92,27 +94,43 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
     const { error } = await crearTarea(unidad.id, tareaForm)
     setSavingTarea(false)
     if (error) return setFormError('No se pudo guardar la tarea.')
-    setTareaForm({ titulo: '', instrucciones: '', fecha_limite: '', puntaje_maximo: '' })
+    setTareaForm({ titulo: '', instrucciones: '', fecha_limite: '', fecha_cierre: '', puntaje_maximo: '' })
     setShowTareaForm(false)
     onUnidadUpdate()
   }
 
-  async function handleDeleteMaterial(id) {
-    if (!confirm('¿Eliminar este material?')) return
-    await eliminarMaterial(id)
-    onUnidadUpdate()
+  function handleDeleteMaterial(id) {
+    const item = materiales.find(m => m.id === id)
+    setConfirmModal({
+      title: 'Eliminar material',
+      description: item ? `"${item.titulo}" será eliminado permanentemente.` : 'Este material será eliminado permanentemente.',
+      confirmLabel: 'Eliminar material',
+      onConfirm: async () => { await eliminarMaterial(id); onUnidadUpdate() },
+    })
   }
 
-  async function handleDeleteTarea(id) {
-    if (!confirm('¿Eliminar esta tarea?')) return
-    await eliminarTarea(id)
-    onUnidadUpdate()
+  function handleDeleteTarea(id) {
+    const item = tareas.find(t => t.id === id)
+    setConfirmModal({
+      title: 'Eliminar tarea',
+      description: item
+        ? `"${item.titulo}" y todas sus entregas serán eliminadas permanentemente.`
+        : 'Esta tarea y todas sus entregas serán eliminadas permanentemente.',
+      confirmLabel: 'Eliminar tarea',
+      onConfirm: async () => { await eliminarTarea(id); onUnidadUpdate() },
+    })
   }
 
-  async function handleDeleteCuestionario(id) {
-    if (!confirm('¿Eliminar este cuestionario? Se perderán todos los intentos.')) return
-    await eliminarCuestionario(id)
-    onUnidadUpdate()
+  function handleDeleteCuestionario(id) {
+    const item = cuestionarios.find(q => q.id === id)
+    setConfirmModal({
+      title: 'Eliminar cuestionario',
+      description: item
+        ? `"${item.titulo}" y todos los intentos de los estudiantes serán eliminados permanentemente.`
+        : 'Este cuestionario y todos los intentos serán eliminados permanentemente.',
+      confirmLabel: 'Eliminar cuestionario',
+      onConfirm: async () => { await eliminarCuestionario(id); onUnidadUpdate() },
+    })
   }
 
   return (
@@ -374,6 +392,15 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Cierre (opcional)</label>
+                    <input
+                      type="datetime-local"
+                      value={tareaForm.fecha_cierre}
+                      onChange={e => setTareaForm(p => ({ ...p, fecha_cierre: e.target.value }))}
+                      style={{ ...miniInputStyle, borderColor: tareaForm.fecha_cierre ? 'rgba(124,58,237,0.5)' : undefined }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Puntaje máx.</label>
                     <input
                       type="number" min="0" step="0.5"
@@ -432,8 +459,26 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmModal !== null}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description}
+        confirmLabel={confirmModal?.confirmLabel}
+        onConfirm={confirmModal?.onConfirm ?? (() => {})}
+        onCancel={() => setConfirmModal(null)}
+      />
     </div>
   )
+}
+
+function colorCalificacion(cal, max) {
+  if (max == null || max <= 0) return { color: 'var(--text-secondary)', bg: 'rgba(100,100,100,0.08)' }
+  const pct = (cal / max) * 100
+  if (pct >= 80) return { color: 'var(--success)', bg: 'rgba(22,163,74,0.1)' }
+  if (pct >= 60) return { color: '#CA8A04', bg: 'rgba(202,138,4,0.1)' }
+  if (pct >= 40) return { color: '#EA580C', bg: 'rgba(234,88,12,0.1)' }
+  return { color: 'var(--error)', bg: 'rgba(220,38,38,0.08)' }
 }
 
 // ── TareaItem ─────────────────────────────────────────────────────────────────
@@ -442,7 +487,8 @@ function TareaItem({ tarea, cursoId, entrega, canDelete, onDelete }) {
   let estadoBadge = null
   if (entrega) {
     if (entrega.calificacion != null) {
-      estadoBadge = { label: `${entrega.calificacion} pts`, color: 'var(--success)', bg: 'rgba(22,163,74,0.1)' }
+      const c = colorCalificacion(entrega.calificacion, tarea.puntaje_maximo)
+      estadoBadge = { label: `${entrega.calificacion}${tarea.puntaje_maximo != null ? `/${tarea.puntaje_maximo}` : ''} pts`, color: c.color, bg: c.bg }
     } else {
       estadoBadge = { label: 'Entregada', color: 'var(--info)', bg: 'rgba(37,99,235,0.1)' }
     }

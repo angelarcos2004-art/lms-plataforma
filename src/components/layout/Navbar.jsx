@@ -54,6 +54,7 @@ export default function Navbar() {
           {(isDocente || isAdmin) && (
             <NavItem to="/courses/new" active={pathname === '/courses/new'}>+ Crear Curso</NavItem>
           )}
+          <NavItem to="/soporte" active={pathname === '/soporte'}>Soporte</NavItem>
         </nav>
       </div>
 

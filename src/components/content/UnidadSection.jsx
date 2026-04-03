@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialItem from './MaterialItem'
-import { crearMaterial, crearTarea, eliminarMaterial, eliminarTarea } from '../../lib/contentService'
+import { crearMaterial, crearTarea, eliminarMaterial, eliminarTarea, subirArchivo } from '../../lib/contentService'
 import { eliminarCuestionario } from '../../lib/quizService'
+
+function tipoDbDesdeUrl(url) {
+  const ext = url.split('?')[0].split('.').pop().toLowerCase()
+  if (['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) return 'video'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'documento'
+  if (['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'odt', 'odp', 'ods', 'csv'].includes(ext)) return 'documento'
+  if (url.startsWith('http')) return 'enlace'
+  return 'texto'
+}
 
 export default function UnidadSection({ unidad, numero, cursoId, canEdit, entregasMap, intentosMap, onUnidadUpdate }) {
   const [expanded, setExpanded] = useState(true)
@@ -10,7 +19,9 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
   // Formularios inline
   const [showMatForm, setShowMatForm] = useState(false)
   const [showTareaForm, setShowTareaForm] = useState(false)
-  const [matForm, setMatForm] = useState({ titulo: '', tipo: 'texto', contenido: '' })
+  const [matTipo, setMatTipo] = useState('texto') // 'texto' | 'enlace' | 'archivo'
+  const [matForm, setMatForm] = useState({ titulo: '', contenido: '' })
+  const [matArchivos, setMatArchivos] = useState([]) // [{ id, nombre, url, uploading, error }]
   const [tareaForm, setTareaForm] = useState({ titulo: '', instrucciones: '', fecha_limite: '', puntaje_maximo: '' })
   const [savingMat, setSavingMat] = useState(false)
   const [savingTarea, setSavingTarea] = useState(false)
@@ -22,16 +33,55 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
 
   async function handleAddMaterial(e) {
     e.preventDefault()
-    if (!matForm.titulo.trim()) return setFormError('El título es obligatorio.')
-    if (!matForm.contenido.trim()) return setFormError('El contenido es obligatorio.')
-    setSavingMat(true)
     setFormError(null)
-    const { error } = await crearMaterial(unidad.id, matForm)
-    setSavingMat(false)
-    if (error) return setFormError('No se pudo guardar el material.')
-    setMatForm({ titulo: '', tipo: 'texto', contenido: '' })
+
+    if (matTipo === 'archivo') {
+      const listos = matArchivos.filter(a => a.url && !a.uploading && !a.error)
+      if (listos.length === 0) return setFormError('Sube al menos un archivo.')
+      setSavingMat(true)
+      for (const arch of listos) {
+        const tipo = tipoDbDesdeUrl(arch.url)
+        const { error } = await crearMaterial(unidad.id, { titulo: arch.nombre, tipo, contenido: arch.url })
+        if (error) { setSavingMat(false); return setFormError('No se pudo guardar uno de los archivos.') }
+      }
+      setSavingMat(false)
+    } else {
+      if (!matForm.titulo.trim()) return setFormError('El título es obligatorio.')
+      if (!matForm.contenido.trim()) return setFormError('Agrega contenido o un enlace.')
+      setSavingMat(true)
+      const tipo = matTipo === 'enlace' ? 'enlace' : 'texto'
+      const { error } = await crearMaterial(unidad.id, { titulo: matForm.titulo.trim(), tipo, contenido: matForm.contenido.trim() })
+      setSavingMat(false)
+      if (error) return setFormError('No se pudo guardar el material.')
+    }
+
+    setMatForm({ titulo: '', contenido: '' })
+    setMatArchivos([])
+    setMatTipo('texto')
     setShowMatForm(false)
     onUnidadUpdate()
+  }
+
+  async function handleArchivosMultiples(e) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setFormError(null)
+    const nuevos = files.map(f => ({ id: `${Date.now()}-${Math.random()}`, nombre: f.name, url: null, uploading: true, error: null }))
+    setMatArchivos(prev => [...prev, ...nuevos])
+
+    await Promise.all(nuevos.map(async (entry, i) => {
+      const { data: url, error } = await subirArchivo(files[i], 'materiales')
+      setMatArchivos(prev => prev.map(a =>
+        a.id === entry.id ? { ...a, url: url ?? null, uploading: false, error: error ? 'Error al subir' : null } : a
+      ))
+    }))
+
+    // reset input so same files can be re-selected if needed
+    e.target.value = ''
+  }
+
+  function quitarArchivoMat(id) {
+    setMatArchivos(prev => prev.filter(a => a.id !== id))
   }
 
   async function handleAddTarea(e) {
@@ -148,38 +198,115 @@ export default function UnidadSection({ unidad, numero, cursoId, canEdit, entreg
             {/* Formulario nuevo material */}
             {showMatForm && (
               <form onSubmit={handleAddMaterial} style={inlineFormStyle}>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {matTipo !== 'archivo' && (
                   <input
                     placeholder="Título del material"
                     value={matForm.titulo}
                     onChange={e => setMatForm(p => ({ ...p, titulo: e.target.value }))}
-                    style={{ ...miniInputStyle, flex: '1 1 200px' }}
+                    style={{ ...miniInputStyle, width: '100%', boxSizing: 'border-box' }}
                   />
-                  <select
-                    value={matForm.tipo}
-                    onChange={e => setMatForm(p => ({ ...p, tipo: e.target.value }))}
-                    style={{ ...miniInputStyle, width: '130px' }}
-                  >
-                    <option value="texto">Texto</option>
-                    <option value="enlace">Enlace</option>
-                    <option value="video">Video</option>
-                    <option value="documento">Documento</option>
-                    <option value="otro">Otro</option>
-                  </select>
+                )}
+
+                {/* Selector de tipo */}
+                <div style={{ display: 'flex', gap: '0.375rem' }}>
+                  {[
+                    { val: 'texto', label: 'Texto' },
+                    { val: 'enlace', label: 'Enlace' },
+                    { val: 'archivo', label: 'Archivo' },
+                  ].map(op => (
+                    <button
+                      key={op.val} type="button"
+                      onClick={() => { setMatTipo(op.val); setMatForm(p => ({ ...p, contenido: '' })) }}
+                      style={{
+                        padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                        border: `1px solid ${matTipo === op.val ? 'var(--wine-600)' : 'var(--wine-100)'}`,
+                        background: matTipo === op.val ? 'rgba(123,45,59,0.08)' : 'white',
+                        color: matTipo === op.val ? 'var(--wine-800)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
                 </div>
-                <textarea
-                  placeholder={matForm.tipo === 'enlace' ? 'URL del enlace (https://...)' : 'Contenido del material...'}
-                  value={matForm.contenido}
-                  onChange={e => setMatForm(p => ({ ...p, contenido: e.target.value }))}
-                  rows={3}
-                  style={{ ...miniInputStyle, width: '100%', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                />
+
+                {matTipo === 'texto' && (
+                  <textarea
+                    placeholder="Escribe el contenido del material..."
+                    value={matForm.contenido}
+                    onChange={e => setMatForm(p => ({ ...p, contenido: e.target.value }))}
+                    rows={3}
+                    style={{ ...miniInputStyle, width: '100%', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                  />
+                )}
+
+                {matTipo === 'enlace' && (
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={matForm.contenido}
+                    onChange={e => setMatForm(p => ({ ...p, contenido: e.target.value }))}
+                    style={{ ...miniInputStyle, width: '100%', boxSizing: 'border-box' }}
+                  />
+                )}
+
+                {matTipo === 'archivo' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {/* Chips de archivos */}
+                    {matArchivos.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        {matArchivos.map(arch => (
+                          <div key={arch.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem',
+                            border: `1px solid ${arch.error ? 'var(--error)' : arch.uploading ? 'var(--wine-200)' : 'var(--wine-300)'}`,
+                            background: arch.error ? 'rgba(220,38,38,0.06)' : arch.uploading ? 'var(--wine-50)' : 'rgba(123,45,59,0.06)',
+                            color: arch.error ? 'var(--error)' : 'var(--wine-800)',
+                            maxWidth: '200px',
+                          }}>
+                            {arch.uploading ? (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                                <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/>
+                              </svg>
+                            ) : arch.error ? (
+                              <span style={{ fontSize: '0.7rem' }}>✕</span>
+                            ) : (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            )}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                              {arch.error ?? arch.nombre}
+                            </span>
+                            <button type="button" onClick={() => quitarArchivoMat(arch.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'inherit', flexShrink: 0 }}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start',
+                      padding: '0.4rem 0.875rem', borderRadius: '6px', cursor: 'pointer',
+                      border: '1px solid var(--wine-200)', background: 'white',
+                      color: 'var(--wine-700)', fontSize: '0.78rem', fontWeight: 600,
+                    }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Agregar archivos
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.odp,.ods,.csv,.mp4,.webm,.avi,.mov,.mkv,.mp3,.wav,.ogg,.flac,.m4a,.aac,.jpg,.jpeg,.png,.gif,.webp"
+                        style={{ display: 'none' }}
+                        onChange={handleArchivosMultiples}
+                      />
+                    </label>
+                  </div>
+                )}
+
                 {formError && <p style={{ margin: 0, color: 'var(--error)', fontSize: '0.78rem' }}>{formError}</p>}
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="submit" disabled={savingMat} style={saveBtnStyle}>
+                  <button type="submit" disabled={savingMat || matArchivos.some(a => a.uploading)} style={saveBtnStyle}>
                     {savingMat ? 'Guardando...' : 'Guardar'}
                   </button>
-                  <button type="button" onClick={() => setShowMatForm(false)} style={cancelBtnStyle}>Cancelar</button>
+                  <button type="button" onClick={() => { setShowMatForm(false); setMatTipo('texto'); setMatForm({ titulo: '', contenido: '' }); setMatArchivos([]) }} style={cancelBtnStyle}>Cancelar</button>
                 </div>
               </form>
             )}

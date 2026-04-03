@@ -35,6 +35,7 @@ export default function QuizForm() {
     fecha_disponible: '',
     fecha_limite: '',
     tiempo_limite_minutos: '',
+    mostrar_resultados: true,
   })
   const [preguntas, setPreguntas] = useState([newPregunta(0)])
   const [nextKey, setNextKey] = useState(1)
@@ -57,6 +58,7 @@ export default function QuizForm() {
           fecha_disponible: data.fecha_disponible ? data.fecha_disponible.slice(0, 16) : '',
           fecha_limite: data.fecha_limite ? data.fecha_limite.slice(0, 16) : '',
           tiempo_limite_minutos: data.tiempo_limite_minutos ?? '',
+          mostrar_resultados: data.mostrar_resultados ?? true,
         })
         // Preguntas existentes → read-only (no editar preguntas ya usadas en intentos)
         const pregs = [...(data.preguntas ?? [])].sort((a, b) => a.orden - b.orden)
@@ -152,6 +154,7 @@ export default function QuizForm() {
       fecha_disponible: meta.fecha_disponible || null,
       fecha_limite: meta.fecha_limite || null,
       tiempo_limite_minutos: meta.tiempo_limite_minutos ? parseInt(meta.tiempo_limite_minutos) : null,
+      mostrar_resultados: meta.mostrar_resultados,
     }
 
     let quizDbId = quizId ? parseInt(quizId) : null
@@ -264,6 +267,37 @@ export default function QuizForm() {
                     />
                   </Field>
                 </div>
+
+                {/* Toggle mostrar resultados */}
+                <div
+                  onClick={() => setMeta(p => ({ ...p, mostrar_resultados: !p.mostrar_resultados }))}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--wine-100)', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                      Mostrar resultados al estudiante
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      {meta.mostrar_resultados
+                        ? 'El estudiante verá su calificación y respuestas correctas al terminar.'
+                        : 'El estudiante solo verá que su respuesta fue enviada, sin puntaje ni revisión.'}
+                    </p>
+                  </div>
+                  <div style={{
+                    width: '44px', height: '24px', borderRadius: '9999px', flexShrink: 0, marginLeft: '1rem',
+                    background: meta.mostrar_resultados ? 'var(--wine-600)' : 'var(--wine-200)',
+                    position: 'relative', transition: 'background 0.2s',
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: '3px',
+                      left: meta.mostrar_resultados ? '23px' : '3px',
+                      width: '18px', height: '18px', borderRadius: '50%',
+                      background: 'white', transition: 'left 0.2s',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+                </div>
+
               </div>
             </div>
 

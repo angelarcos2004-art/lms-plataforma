@@ -1,15 +1,40 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import CourseCard from '../../components/courses/CourseCard'
-import { getCursos, getCategorias } from '../../lib/coursesService'
+import { getCursos, getCategorias, unirseConCodigo } from '../../lib/coursesService'
+import { useRole } from '../../hooks/useRole'
 
 export default function CourseCatalog() {
+  const navigate = useNavigate()
+  const { isEstudiante } = useRole()
+
   const [cursos, setCursos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas')
   const [busqueda, setBusqueda] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Unirse con código
+  const [codigo, setCodigo] = useState('')
+  const [codigoLoading, setCodigoLoading] = useState(false)
+  const [codigoMsg, setCodigoMsg] = useState(null)
+
+  async function handleUnirseConCodigo(e) {
+    e.preventDefault()
+    if (!codigo.trim()) return
+    setCodigoLoading(true)
+    setCodigoMsg(null)
+    const { data, error: err } = await unirseConCodigo(codigo.trim())
+    setCodigoLoading(false)
+    if (err) {
+      setCodigoMsg({ tipo: 'error', texto: err.message ?? 'Código inválido o ya estás inscrito.' })
+    } else {
+      setCodigoMsg({ tipo: 'ok', texto: '¡Te inscribiste correctamente! Redirigiendo...' })
+      setTimeout(() => navigate(`/courses/${data.curso_id}`), 1500)
+    }
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -45,6 +70,38 @@ export default function CourseCatalog() {
             {cursos.length} {cursos.length !== 1 ? 'cursos disponibles' : 'curso disponible'}
           </p>
         </div>
+
+        {/* Unirse con código (solo estudiantes) */}
+        {isEstudiante && (
+          <div style={{ marginBottom: '1.5rem', background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem 1.5rem' }}>
+            <p style={{ margin: '0 0 0.75rem', fontWeight: 700, color: 'var(--wine-800)', fontSize: '0.95rem' }}>
+              ¿Tienes un código de invitación?
+            </p>
+            <form onSubmit={handleUnirseConCodigo} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                value={codigo}
+                onChange={e => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                placeholder="Ingresa tu código de acceso"
+                maxLength={12}
+                style={{ flex: '1 1 200px', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--wine-100)', fontSize: '0.875rem', fontWeight: 700, letterSpacing: '0.1em', outline: 'none', color: 'var(--wine-800)', background: 'var(--bg-page)' }}
+                onFocus={e => (e.target.style.borderColor = 'var(--wine-400)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--wine-100)')}
+              />
+              <button
+                type="submit"
+                disabled={codigoLoading || !codigo.trim()}
+                style={{ padding: '0.6rem 1.5rem', borderRadius: '0.5rem', border: 'none', background: codigoLoading ? 'var(--wine-200)' : 'var(--wine-600)', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: codigoLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {codigoLoading ? 'Verificando...' : 'Unirme al curso'}
+              </button>
+            </form>
+            {codigoMsg && (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.82rem', color: codigoMsg.tipo === 'ok' ? 'var(--success)' : 'var(--error)', fontWeight: 600 }}>
+                {codigoMsg.texto}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Filtros */}
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>

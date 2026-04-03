@@ -59,13 +59,18 @@ export default function HiloPage() {
       <Navbar />
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
-        {/* Breadcrumb */}
-        <div style={{ marginBottom: '1.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-          <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{cursoTitulo}</Link>
-          <span>›</span>
-          <Link to={`/courses/${cursoId}/foro`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>Foro</Link>
-          <span>›</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{hilo?.titulo ?? '...'}</span>
+        {/* Breadcrumb + Regresar */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+            <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{cursoTitulo}</Link>
+            <span>›</span>
+            <Link to={`/courses/${cursoId}/foro`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>Foro</Link>
+            <span>›</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{hilo?.titulo ?? '...'}</span>
+          </div>
+          <Link to={`/courses/${cursoId}/foro`} style={{ fontSize: '0.8rem', color: 'var(--wine-600)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            ← Regresar al foro
+          </Link>
         </div>
 
         {loading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>Cargando...</div>}
@@ -79,13 +84,15 @@ export default function HiloPage() {
                 <h1 style={{ margin: '0 0 0.75rem', color: 'white', fontSize: '1.25rem', fontWeight: 800 }}>
                   {hilo.titulo}
                 </h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.8rem' }}>
                     {(hilo.usuarios?.nombre_completo ?? '?').charAt(0).toUpperCase()}
                   </div>
                   <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)' }}>
-                    {hilo.usuarios?.nombre_completo ?? 'Autor'} · {tiempoRelativo(hilo.created_at)}
+                    {hilo.usuarios?.nombre_completo ?? 'Autor'}
                   </span>
+                  <RolBadgeHilo rol={hilo.usuarios?.rol} />
+                  <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>· {tiempoRelativo(hilo.created_at)}</span>
                 </div>
               </div>
               <div style={{ padding: '1.5rem' }}>
@@ -117,8 +124,10 @@ export default function HiloPage() {
                       </div>
 
                       <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: esPropio ? 'flex-end' : 'flex-start' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                          {esPropio ? 'Tú' : msg.usuarios?.nombre_completo ?? 'Usuario'} · {tiempoRelativo(msg.created_at)}
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                          {esPropio ? 'Tú' : msg.usuarios?.nombre_completo ?? 'Usuario'}
+                          {!esPropio && <RolBadgeHilo rol={msg.usuarios?.rol} />}
+                          <span>· {tiempoRelativo(msg.created_at)}</span>
                         </span>
                         <div style={{ background: esPropio ? 'var(--wine-50)' : 'var(--bg-card)', border: `1px solid ${esPropio ? 'var(--wine-200)' : 'var(--wine-100)'}`, borderRadius: esPropio ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '0.75rem 1rem', position: 'relative' }}>
                           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
@@ -176,6 +185,22 @@ export default function HiloPage() {
         )}
       </main>
     </div>
+  )
+}
+
+function RolBadgeHilo({ rol }) {
+  if (!rol) return null
+  const estilos = {
+    administrador: { bg: 'rgba(123,45,59,0.12)', color: 'var(--wine-800)', border: 'var(--wine-200)', label: 'Administrador' },
+    docente:       { bg: 'rgba(37,99,235,0.1)',  color: 'var(--info)',      border: 'rgba(37,99,235,0.25)', label: 'Docente' },
+    estudiante:    { bg: 'rgba(22,163,74,0.09)', color: 'var(--success)',   border: 'rgba(22,163,74,0.3)',  label: 'Estudiante' },
+  }
+  const e = estilos[rol]
+  if (!e) return null
+  return (
+    <span style={{ padding: '1px 7px', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 700, background: e.bg, color: e.color, border: `1px solid ${e.border}` }}>
+      {e.label}
+    </span>
   )
 }
 

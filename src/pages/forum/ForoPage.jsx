@@ -3,13 +3,13 @@ import { useParams, Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import { useAuth } from '../../contexts/AuthContext'
 import { getCursoById } from '../../lib/coursesService'
-import { getOrCreateForo, getHilosByForo, crearHilo, eliminarHilo } from '../../lib/socialService'
+import { getForo, getOrCreateForo, getHilosByForo, crearHilo, eliminarHilo } from '../../lib/socialService'
 import { useRole } from '../../hooks/useRole'
 
 export default function ForoPage() {
   const { id: cursoId } = useParams()
   const { user } = useAuth()
-  const { isAdmin } = useRole()
+  const { isAdmin, isDocente } = useRole()
 
   const [curso, setCurso] = useState(null)
   const [foro, setForo] = useState(null)
@@ -31,14 +31,18 @@ export default function ForoPage() {
       const { data: cursoData } = await getCursoById(cursoId)
       setCurso(cursoData)
 
-      const { data: foroData, error } = await getOrCreateForo(cursoId)
+      // Solo docente/admin pueden crear el foro automáticamente; estudiantes solo leen
+      const { data: foroData, error } = (isAdmin || isDocente)
+        ? await getOrCreateForo(cursoId)
+        : await getForo(cursoId)
       if (error || !foroData) { setLoading(false); return }
       setForo(foroData)
       await cargarHilos(foroData.id)
       setLoading(false)
     }
     cargar()
-  }, [cursoId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoId, isAdmin, isDocente])
 
   async function handleCrearHilo(e) {
     e.preventDefault()
@@ -65,13 +69,18 @@ export default function ForoPage() {
       <Navbar />
       <main style={{ maxWidth: '900px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
-        {/* Breadcrumb */}
-        <div style={{ marginBottom: '1.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-          <Link to="/courses" style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>Catálogo</Link>
-          <span>›</span>
-          <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{curso?.titulo ?? '...'}</Link>
-          <span>›</span>
-          <span>Foro</span>
+        {/* Breadcrumb + Regresar */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+            <Link to="/courses" style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>Catálogo</Link>
+            <span>›</span>
+            <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{curso?.titulo ?? '...'}</Link>
+            <span>›</span>
+            <span>Foro</span>
+          </div>
+          <Link to={`/courses/${cursoId}`} style={{ fontSize: '0.8rem', color: 'var(--wine-600)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            ← Regresar al curso
+          </Link>
         </div>
 
         {/* Header */}
@@ -84,12 +93,14 @@ export default function ForoPage() {
               {hilos.length} hilo{hilos.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
-            onClick={() => { setShowForm(v => !v); setFormError(null) }}
-            style={{ padding: '0.5rem 1.25rem', borderRadius: '0.5rem', border: 'none', background: 'var(--wine-600)', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer' }}
-          >
-            + Nuevo hilo
-          </button>
+          {(isAdmin || isDocente) && (
+            <button
+              onClick={() => { setShowForm(v => !v); setFormError(null) }}
+              style={{ padding: '0.5rem 1.25rem', borderRadius: '0.5rem', border: 'none', background: 'var(--wine-600)', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer' }}
+            >
+              + Nuevo hilo
+            </button>
+          )}
         </div>
 
         {/* Formulario nuevo hilo */}
@@ -131,7 +142,11 @@ export default function ForoPage() {
         {!loading && hilos.length === 0 && (
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '3rem 2rem', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.5rem' }}>No hay hilos aún.</p>
-            <p style={{ color: 'var(--wine-400)', fontSize: '0.875rem', margin: 0 }}>¡Sé el primero en publicar!</p>
+            {(isAdmin || isDocente) ? (
+              <p style={{ color: 'var(--wine-400)', fontSize: '0.875rem', margin: 0 }}>¡Sé el primero en publicar!</p>
+            ) : (
+              <p style={{ color: 'var(--wine-400)', fontSize: '0.875rem', margin: 0 }}>El docente aún no ha publicado hilos en este foro.</p>
+            )}
           </div>
         )}
 
@@ -159,10 +174,12 @@ export default function ForoPage() {
                     <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {hilo.contenido}
                     </p>
-                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap', alignItems: 'center' }}>
                       <span>Por <strong style={{ color: 'var(--wine-600)' }}>{hilo.usuarios?.nombre_completo ?? 'Usuario'}</strong></span>
+                      <RolBadge rol={hilo.usuarios?.rol} />
+                      <span>·</span>
                       <span>{tiempoRelativo(hilo.created_at)}</span>
-                      <span>💬 {msgCount} respuesta{msgCount !== 1 ? 's' : ''}</span>
+                      <span>· 💬 {msgCount} respuesta{msgCount !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
 
@@ -176,6 +193,22 @@ export default function ForoPage() {
         )}
       </main>
     </div>
+  )
+}
+
+function RolBadge({ rol }) {
+  if (!rol) return null
+  const estilos = {
+    administrador: { bg: 'rgba(123,45,59,0.12)', color: 'var(--wine-800)', border: 'var(--wine-200)', label: 'Administrador' },
+    docente:       { bg: 'rgba(37,99,235,0.1)',  color: 'var(--info)',      border: 'rgba(37,99,235,0.25)', label: 'Docente' },
+    estudiante:    { bg: 'rgba(22,163,74,0.09)', color: 'var(--success)',   border: 'rgba(22,163,74,0.3)',  label: 'Estudiante' },
+  }
+  const e = estilos[rol]
+  if (!e) return null
+  return (
+    <span style={{ padding: '1px 7px', borderRadius: '9999px', fontSize: '0.68rem', fontWeight: 700, background: e.bg, color: e.color, border: `1px solid ${e.border}` }}>
+      {e.label}
+    </span>
   )
 }
 

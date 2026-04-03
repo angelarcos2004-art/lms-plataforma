@@ -26,6 +26,7 @@ export default function QuizAttempt() {
   const [intentoActual, setIntentoActual] = useState(null)
   const [respuestas, setRespuestas] = useState({}) // { pregunta_id: { opcion_id, es_correcta } }
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
   const [resultado, setResultado] = useState(null) // { puntaje_obtenido, puntaje_maximo, respuestasMap }
 
   // Timer
@@ -152,7 +153,11 @@ export default function QuizAttempt() {
     const { error } = await submitIntento(intentoActual.id, respuestasData, puntajeObtenido, puntajeMaximo)
 
     setSubmitting(false)
-    if (error) return
+    if (error) {
+      setSubmitError(`Error al enviar: ${error.message ?? error.code ?? JSON.stringify(error)}`)
+      return
+    }
+    setSubmitError(null)
 
     const respMap = {}
     for (const r of respuestasData) respMap[r.pregunta_id] = r.opcion_seleccionada_id
@@ -171,13 +176,20 @@ export default function QuizAttempt() {
       <Navbar />
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
-        {/* Breadcrumb */}
-        <div style={{ marginBottom: '1.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-          <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{cursoTitulo}</Link>
-          <span>›</span>
-          <Link to={`/courses/${cursoId}/content`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{unidadTitulo}</Link>
-          <span>›</span>
-          <span>{quiz?.titulo ?? '...'}</span>
+        {/* Breadcrumb + Regresar */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+            <Link to={`/courses/${cursoId}`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{cursoTitulo}</Link>
+            <span>›</span>
+            <Link to={`/courses/${cursoId}/content`} style={{ color: 'var(--wine-600)', textDecoration: 'none' }}>{unidadTitulo}</Link>
+            <span>›</span>
+            <span>{quiz?.titulo ?? '...'}</span>
+          </div>
+          {phase !== 'taking' && (
+            <Link to={`/courses/${cursoId}/content`} style={{ fontSize: '0.8rem', color: 'var(--wine-600)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              ← Regresar al contenido
+            </Link>
+          )}
         </div>
 
         {phase === 'loading' && (
@@ -283,17 +295,24 @@ export default function QuizAttempt() {
             ))}
 
             {/* Enviar */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                {Object.keys(respuestas).length}/{quiz.preguntas.length} respondidas
-              </span>
-              <button
-                onClick={() => handleSubmit(false)}
-                disabled={submitting}
-                style={{ padding: '0.75rem 2rem', borderRadius: '0.5rem', border: 'none', background: submitting ? 'var(--wine-200)' : 'var(--wine-600)', color: 'white', fontWeight: 700, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer' }}
-              >
-                {submitting ? 'Enviando...' : 'Enviar respuestas'}
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                  {Object.keys(respuestas).length}/{quiz.preguntas.length} respondidas
+                </span>
+                <button
+                  onClick={() => handleSubmit(false)}
+                  disabled={submitting}
+                  style={{ padding: '0.75rem 2rem', borderRadius: '0.5rem', border: 'none', background: submitting ? 'var(--wine-200)' : 'var(--wine-600)', color: 'white', fontWeight: 700, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer' }}
+                >
+                  {submitting ? 'Enviando...' : 'Enviar respuestas'}
+                </button>
+              </div>
+              {submitError && (
+                <div style={{ padding: '0.625rem 1rem', borderRadius: '0.5rem', background: 'rgba(220,38,38,0.08)', border: '1px solid var(--error)', color: 'var(--error)', fontSize: '0.8rem', maxWidth: '100%' }}>
+                  {submitError}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -301,62 +320,87 @@ export default function QuizAttempt() {
         {/* ── RESULTS ── */}
         {phase === 'results' && quiz && resultado && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Score card */}
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
-              <h1 style={{ margin: '0 0 1rem', color: 'var(--wine-800)', fontSize: '1.5rem', fontWeight: 800 }}>{quiz.titulo}</h1>
-              <div style={{ fontSize: '3rem', fontWeight: 800, color: getScoreColor(resultado.puntaje_obtenido, resultado.puntaje_maximo), margin: '0 0 0.25rem' }}>
-                {resultado.puntaje_obtenido}<span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/{resultado.puntaje_maximo}</span>
+            {/* Banner de confirmación (siempre visible) */}
+            <div style={{ background: 'rgba(22,163,74,0.08)', border: '1px solid var(--success)', borderRadius: '1rem', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(22,163,74,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary)', fontSize: '1rem' }}>
-                {resultado.puntaje_maximo > 0 ? Math.round((resultado.puntaje_obtenido / resultado.puntaje_maximo) * 100) : 0}% correcto
-              </p>
-              {/* Barra progreso */}
-              <div style={{ height: '10px', borderRadius: '9999px', background: 'var(--wine-100)', overflow: 'hidden', maxWidth: '400px', margin: '0 auto' }}>
-                <div style={{ height: '100%', borderRadius: '9999px', background: getScoreColor(resultado.puntaje_obtenido, resultado.puntaje_maximo), width: `${resultado.puntaje_maximo > 0 ? (resultado.puntaje_obtenido / resultado.puntaje_maximo) * 100 : 0}%`, transition: 'width 0.8s ease' }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: 'var(--success)', fontSize: '0.95rem' }}>Evaluación enviada correctamente</p>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {quiz.mostrar_resultados
+                    ? 'Tus respuestas fueron registradas. Aquí están tus resultados.'
+                    : 'Tus respuestas fueron registradas. El docente ha desactivado la visualización de resultados.'}
+                </p>
               </div>
             </div>
 
-            {/* Detalle por pregunta */}
-            <h2 style={{ margin: '0', color: 'var(--wine-800)', fontSize: '1.1rem', fontWeight: 700 }}>Revisión de respuestas</h2>
-            {quiz.preguntas.map((p, idx) => {
-              const selectedId = resultado.respuestasMap[p.id]
-              const selectedOpcion = p.opciones_respuesta.find(o => o.id === selectedId)
-              const correctaOpcion = p.opciones_respuesta.find(o => o.es_correcta)
-              const esCorrecta = selectedOpcion?.es_correcta === true
-              const noRespondida = !selectedId
-
-              return (
-                <div key={p.id} style={{ background: 'var(--bg-card)', border: `1px solid ${noRespondida ? 'var(--wine-100)' : esCorrecta ? 'var(--success)' : 'var(--error)'}`, borderRadius: '1rem', padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
-                    <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: noRespondida ? 'var(--wine-100)' : esCorrecta ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.85rem' }}>
-                      {noRespondida ? '—' : esCorrecta ? '✓' : '✗'}
-                    </span>
-                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.6, flex: 1 }}>{idx + 1}. {p.texto_pregunta}</p>
+            {quiz.mostrar_resultados ? (
+              <>
+                {/* Score card */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+                  <h1 style={{ margin: '0 0 1rem', color: 'var(--wine-800)', fontSize: '1.5rem', fontWeight: 800 }}>{quiz.titulo}</h1>
+                  <div style={{ fontSize: '3rem', fontWeight: 800, color: getScoreColor(resultado.puntaje_obtenido, resultado.puntaje_maximo), margin: '0 0 0.25rem' }}>
+                    {resultado.puntaje_obtenido}<span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/{resultado.puntaje_maximo}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', paddingLeft: '2.25rem' }}>
-                    {p.opciones_respuesta.map(op => {
-                      const isSelected = op.id === selectedId
-                      const isCorrect = op.es_correcta
-                      let bg = 'var(--bg-page)', border = 'var(--wine-100)', color = 'var(--text-primary)'
-                      if (isCorrect) { bg = 'rgba(22,163,74,0.08)'; border = 'var(--success)'; color = 'var(--success)' }
-                      if (isSelected && !isCorrect) { bg = 'rgba(220,38,38,0.08)'; border = 'var(--error)'; color = 'var(--error)' }
-                      return (
-                        <div key={op.id} style={{ padding: '0.5rem 0.875rem', borderRadius: '0.5rem', border: `1px solid ${border}`, background: bg, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>
-                            {isCorrect ? '✓' : isSelected ? '✗' : '○'}
-                          </span>
-                          <span style={{ fontSize: '0.875rem', color, fontWeight: isCorrect || isSelected ? 600 : 400 }}>
-                            {op.texto_opcion}
-                            {isSelected && !isCorrect && <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem' }}>(tu respuesta)</span>}
-                            {isCorrect && !isSelected && <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem' }}>(respuesta correcta)</span>}
-                          </span>
-                        </div>
-                      )
-                    })}
+                  <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary)', fontSize: '1rem' }}>
+                    {resultado.puntaje_maximo > 0 ? Math.round((resultado.puntaje_obtenido / resultado.puntaje_maximo) * 100) : 0}% correcto
+                  </p>
+                  <div style={{ height: '10px', borderRadius: '9999px', background: 'var(--wine-100)', overflow: 'hidden', maxWidth: '400px', margin: '0 auto' }}>
+                    <div style={{ height: '100%', borderRadius: '9999px', background: getScoreColor(resultado.puntaje_obtenido, resultado.puntaje_maximo), width: `${resultado.puntaje_maximo > 0 ? (resultado.puntaje_obtenido / resultado.puntaje_maximo) * 100 : 0}%`, transition: 'width 0.8s ease' }} />
                   </div>
                 </div>
-              )
-            })}
+
+                {/* Detalle por pregunta */}
+                <h2 style={{ margin: '0', color: 'var(--wine-800)', fontSize: '1.1rem', fontWeight: 700 }}>Revisión de respuestas</h2>
+                {quiz.preguntas.map((p, idx) => {
+                  const selectedId = resultado.respuestasMap[p.id]
+                  const selectedOpcion = p.opciones_respuesta.find(o => o.id === selectedId)
+                  const esCorrecta = selectedOpcion?.es_correcta === true
+                  const noRespondida = !selectedId
+                  return (
+                    <div key={p.id} style={{ background: 'var(--bg-card)', border: `1px solid ${noRespondida ? 'var(--wine-100)' : esCorrecta ? 'var(--success)' : 'var(--error)'}`, borderRadius: '1rem', padding: '1.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
+                        <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: noRespondida ? 'var(--wine-100)' : esCorrecta ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.85rem' }}>
+                          {noRespondida ? '—' : esCorrecta ? '✓' : '✗'}
+                        </span>
+                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.6, flex: 1 }}>{idx + 1}. {p.texto_pregunta}</p>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', paddingLeft: '2.25rem' }}>
+                        {p.opciones_respuesta.map(op => {
+                          const isSelected = op.id === selectedId
+                          const isCorrect = op.es_correcta
+                          let bg = 'var(--bg-page)', border = 'var(--wine-100)', color = 'var(--text-primary)'
+                          if (isCorrect) { bg = 'rgba(22,163,74,0.08)'; border = 'var(--success)'; color = 'var(--success)' }
+                          if (isSelected && !isCorrect) { bg = 'rgba(220,38,38,0.08)'; border = 'var(--error)'; color = 'var(--error)' }
+                          return (
+                            <div key={op.id} style={{ padding: '0.5rem 0.875rem', borderRadius: '0.5rem', border: `1px solid ${border}`, background: bg, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>{isCorrect ? '✓' : isSelected ? '✗' : '○'}</span>
+                              <span style={{ fontSize: '0.875rem', color, fontWeight: isCorrect || isSelected ? 600 : 400 }}>
+                                {op.texto_opcion}
+                                {isSelected && !isCorrect && <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem' }}>(tu respuesta)</span>}
+                                {isCorrect && !isSelected && <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem' }}>(respuesta correcta)</span>}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            ) : (
+              /* Sin resultados: mensaje informativo */
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '2.5rem', textAlign: 'center' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'var(--wine-50)', border: '1px solid var(--wine-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--wine-400)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <p style={{ margin: '0 0 0.5rem', fontWeight: 700, color: 'var(--wine-800)', fontSize: '1rem' }}>Resultados no disponibles</p>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                  El docente ha configurado este cuestionario para no mostrar resultados.
+                </p>
+              </div>
+            )}
 
             <Link to={`/courses/${cursoId}/content`} style={{ alignSelf: 'flex-start', padding: '0.625rem 1.5rem', borderRadius: '0.5rem', background: 'var(--wine-600)', color: 'white', textDecoration: 'none', fontWeight: 700, fontSize: '0.875rem' }}>
               ← Volver al curso

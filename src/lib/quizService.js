@@ -52,12 +52,24 @@ export async function getIntentoEstudiante(quizId, estudianteId) {
 
 // Todos los intentos completados de un cuestionario (para docente)
 export async function getIntentosByQuiz(quizId) {
-  return supabase
+  const { data: intentos, error } = await supabase
     .from('intentos_cuestionario')
-    .select('*, usuarios!estudiante_id(nombre_completo, email)')
+    .select('id, estudiante_id, puntaje_obtenido, puntaje_maximo, fecha_fin')
     .eq('cuestionario_id', quizId)
     .not('fecha_fin', 'is', null)
     .order('fecha_fin', { ascending: false })
+
+  if (error || !intentos?.length) return { data: intentos ?? [], error }
+
+  const ids = [...new Set(intentos.map(i => i.estudiante_id))]
+  const { data: perfiles } = await supabase
+    .from('perfiles_publicos')
+    .select('id, nombre_completo')
+    .in('id', ids)
+
+  return {
+    data: intentos.map(i => ({ ...i, usuarios: perfiles?.find(p => p.id === i.estudiante_id) }))
+  }
 }
 
 // Intentos completados del estudiante para una lista de quizzes (para CourseContent)
@@ -83,7 +95,9 @@ export async function crearIntento(quizId, estudianteId) {
 // Guardar respuestas y finalizar intento (auto-calificación client-side)
 export async function submitIntento(intentoId, respuestasData, puntajeObtenido, puntajeMaximo) {
   if (respuestasData.length > 0) {
-    const { error } = await supabase.from('respuestas_estudiante').insert(respuestasData)
+    const { error } = await supabase
+      .from('respuestas_estudiante')
+      .upsert(respuestasData, { onConflict: 'intento_id,pregunta_id' })
     if (error) return { error }
   }
   return supabase

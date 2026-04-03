@@ -73,6 +73,10 @@ export async function eliminarTarea(id) {
   return supabase.from('tareas').delete().eq('id', id)
 }
 
+export async function actualizarFechaTarea(id, fecha_limite) {
+  return supabase.from('tareas').update({ fecha_limite: fecha_limite || null }).eq('id', id).select().single()
+}
+
 // ── Entregas ─────────────────────────────────────────────────────────────────
 
 export async function getEntregaByEstudiante(tareaId, estudianteId) {
@@ -85,11 +89,20 @@ export async function getEntregaByEstudiante(tareaId, estudianteId) {
 }
 
 export async function getEntregasByTarea(tareaId) {
-  return supabase
+  const { data: entregas, error } = await supabase
     .from('entregas')
-    .select('*, usuarios!estudiante_id(nombre_completo, email)')
+    .select('id, tarea_id, estudiante_id, contenido_entrega, fecha_entrega, calificacion, retroalimentacion, calificado_por')
     .eq('tarea_id', tareaId)
     .order('fecha_entrega', { ascending: false })
+
+  if (error || !entregas?.length) return { data: entregas ?? [], error }
+
+  const ids = [...new Set(entregas.map(e => e.estudiante_id))]
+  const { data: perfiles } = await supabase.from('perfiles_publicos').select('id, nombre_completo').in('id', ids)
+
+  return {
+    data: entregas.map(e => ({ ...e, usuarios: perfiles?.find(p => p.id === e.estudiante_id) }))
+  }
 }
 
 export async function getMisEntregas(estudianteId, tareaIds) {
@@ -107,6 +120,22 @@ export async function crearEntrega(tareaId, estudianteId, contenido) {
     .insert({ tarea_id: tareaId, estudiante_id: estudianteId, contenido_entrega: contenido })
     .select()
     .single()
+}
+
+// Subir archivo a storage (materiales o entregas)
+export async function subirArchivo(file, carpeta = 'materiales') {
+  const fileExt = file.name.split('.').pop().toLowerCase()
+  const fileName = `${Math.random().toString(36).substring(2, 12)}-${Date.now()}.${fileExt}`
+  const filePath = `${carpeta}/${fileName}`
+
+  const { error } = await supabase.storage
+    .from('archivos')
+    .upload(filePath, file, { cacheControl: '3600', upsert: false })
+
+  if (error) return { data: null, error }
+
+  const { data: { publicUrl } } = supabase.storage.from('archivos').getPublicUrl(filePath)
+  return { data: publicUrl, error: null }
 }
 
 export async function calificarEntrega(entregaId, calificacion, retroalimentacion, calificadoPor) {

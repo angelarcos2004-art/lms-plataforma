@@ -2,7 +2,16 @@ import { supabase } from './supabase'
 
 // ── Foros ─────────────────────────────────────────────────────────────────────
 
-// Obtiene el foro del curso, lo crea si no existe
+// Solo obtiene el foro del curso (sin crear)
+export async function getForo(cursoId) {
+  return supabase
+    .from('foros')
+    .select('*')
+    .eq('curso_id', cursoId)
+    .maybeSingle()
+}
+
+// Obtiene el foro del curso, lo crea si no existe (solo docente/admin)
 export async function getOrCreateForo(cursoId) {
   const { data } = await supabase
     .from('foros')
@@ -22,19 +31,33 @@ export async function getOrCreateForo(cursoId) {
 // ── Hilos ─────────────────────────────────────────────────────────────────────
 
 export async function getHilosByForo(foroId) {
-  return supabase
+  const { data: hilos, error } = await supabase
     .from('hilos_foro')
-    .select('*, usuarios!autor_id(nombre_completo), mensajes_foro(count)')
+    .select('*, mensajes_foro(count)')
     .eq('foro_id', foroId)
     .order('created_at', { ascending: false })
+  
+  if (error || !hilos || !hilos.length) return { data: hilos, error }
+
+  const autorIds = [...new Set(hilos.map(h => h.autor_id))]
+  const { data: autores } = await supabase.from('perfiles_publicos').select('*').in('id', autorIds)
+  
+  return { 
+    data: hilos.map(h => ({ ...h, usuarios: autores?.find(a => a.id === h.autor_id) }))
+  }
 }
 
 export async function getHiloById(id) {
-  return supabase
+  const { data: hilo, error } = await supabase
     .from('hilos_foro')
-    .select('*, usuarios!autor_id(nombre_completo), foros(curso_id, cursos(titulo))')
+    .select('*, foros(curso_id, cursos(titulo))')
     .eq('id', id)
     .single()
+
+  if (error || !hilo) return { data: hilo, error }
+
+  const { data: autor } = await supabase.from('perfiles_publicos').select('*').eq('id', hilo.autor_id).single()
+  return { data: { ...hilo, usuarios: autor } }
 }
 
 export async function crearHilo(foroId, autorId, titulo, contenido) {
@@ -52,19 +75,33 @@ export async function eliminarHilo(id) {
 // ── Mensajes ──────────────────────────────────────────────────────────────────
 
 export async function getMensajesByHilo(hiloId) {
-  return supabase
+  const { data: mensajes, error } = await supabase
     .from('mensajes_foro')
-    .select('*, usuarios!autor_id(nombre_completo)')
+    .select('*')
     .eq('hilo_id', hiloId)
     .order('created_at', { ascending: true })
+
+  if (error || !mensajes || !mensajes.length) return { data: mensajes, error }
+
+  const autorIds = [...new Set(mensajes.map(m => m.autor_id))]
+  const { data: autores } = await supabase.from('perfiles_publicos').select('*').in('id', autorIds)
+
+  return {
+    data: mensajes.map(m => ({ ...m, usuarios: autores?.find(a => a.id === m.autor_id) }))
+  }
 }
 
 export async function crearMensaje(hiloId, autorId, contenido) {
-  return supabase
+  const { data: mensaje, error } = await supabase
     .from('mensajes_foro')
     .insert({ hilo_id: hiloId, autor_id: autorId, contenido })
-    .select('*, usuarios!autor_id(nombre_completo)')
+    .select()
     .single()
+
+  if (error || !mensaje) return { data: null, error }
+
+  const { data: autor } = await supabase.from('perfiles_publicos').select('*').eq('id', autorId).single()
+  return { data: { ...mensaje, usuarios: autor }, error: null }
 }
 
 export async function eliminarMensaje(id) {

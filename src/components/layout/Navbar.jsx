@@ -14,7 +14,7 @@ export default function Navbar() {
     user?.user_metadata?.full_name ??
     user?.email ??
     'Usuario'
-  const rolLabel = profile?.roles?.nombre ?? 'estudiante'
+  const rolLabel = profile ? (profile?.roles?.nombre ?? 'estudiante') : '...'
 
   return (
     <header
@@ -55,6 +55,9 @@ export default function Navbar() {
             <NavItem to="/courses/new" active={pathname === '/courses/new'}>+ Crear Curso</NavItem>
           )}
           <NavItem to="/soporte" active={pathname === '/soporte'}>Soporte</NavItem>
+          {isAdmin && (
+            <NavItem to="/admin" active={pathname === '/admin'}>Panel Admin</NavItem>
+          )}
         </nav>
       </div>
 

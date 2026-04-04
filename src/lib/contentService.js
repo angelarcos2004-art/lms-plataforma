@@ -300,3 +300,50 @@ export async function calificarEntrega(entregaId, calificacion, retroalimentacio
 
   return { data, error }
 }
+
+// ── Vista de Materiales (Progreso) ──────────────────────────────────────────
+
+export async function marcarMaterialComoVisto(usuarioId, materialId) {
+  const { error } = await supabase
+    .from('materiales_vistos')
+    .insert({ usuario_id: usuarioId, material_id: materialId })
+    
+  // Si ya existe (violación de UNIQUE Constraint), no es un problema real para nuestro uso
+  if (error && error.code !== '23505') {
+    return { error }
+  }
+  return { error: null }
+}
+
+export async function getProgresoCursoEstudiante(cursoId, estudianteId) {
+  const { data: unidades } = await getUnidadesByCurso(cursoId)
+  if (!unidades) return { avance: 0 }
+
+  const materialIds = unidades.flatMap(u => (u.materiales ?? []).map(m => m.id))
+  const tareaIds = unidades.flatMap(u => (u.tareas ?? []).map(t => t.id))
+  const quizIds = unidades.flatMap(u => (u.cuestionarios ?? []).map(q => q.id))
+
+  let vistosTotales = 0
+  if (materialIds.length > 0) {
+    const { data } = await supabase.from('materiales_vistos').select('id').eq('usuario_id', estudianteId).in('material_id', materialIds)
+    vistosTotales = data?.length ?? 0
+  }
+
+  let entregasTotales = 0
+  if (tareaIds.length > 0) {
+    const { data } = await supabase.from('entregas').select('tarea_id').eq('estudiante_id', estudianteId).in('tarea_id', tareaIds)
+    entregasTotales = new Set((data ?? []).map(d => d.tarea_id)).size
+  }
+
+  let quizzesTotales = 0
+  if (quizIds.length > 0) {
+    const { data } = await supabase.from('intentos_cuestionario').select('cuestionario_id').eq('estudiante_id', estudianteId).in('cuestionario_id', quizIds)
+    quizzesTotales = new Set((data ?? []).map(d => d.cuestionario_id)).size
+  }
+
+  const sumaRealizados = vistosTotales + entregasTotales + quizzesTotales
+  const sumaTotales = materialIds.length + tareaIds.length + quizIds.length
+  
+  if (sumaTotales === 0) return { avance: 0 }
+  return { avance: Math.round((sumaRealizados / sumaTotales) * 100) }
+}

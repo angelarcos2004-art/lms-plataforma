@@ -6,6 +6,90 @@ import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
 import { getMisCursos, getCursosByDocente, getTodosCursos } from '../lib/coursesService'
 import { getAdminStats } from '../lib/socialService'
+import { getProgresoCursoEstudiante } from '../lib/contentService'
+
+function MotivationalQuote() {
+  const [quote, setQuote] = useState({ text: 'El éxito es la suma de pequeños esfuerzos repetidos día tras día.', author: 'Robert Collier' })
+  const [loading, setLoading] = useState(false)
+
+  const fetchQuote = async () => {
+    setLoading(true)
+    try {
+      // 1. Obtener cita en inglés
+      const res = await fetch(`https://dummyjson.com/quotes/random?t=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('API 1 Fail')
+      const data = await res.json()
+      
+      if (data && data.quote) {
+        // 2. Traducir al español usando MyMemory Translation API
+        const textToTranslate = encodeURIComponent(data.quote)
+        const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${textToTranslate}&langpair=en|es`)
+        
+        let finalQuote = data.quote // Fallback a inglés por defecto
+        if (transRes.ok) {
+          const transData = await transRes.json()
+          if (transData?.responseData?.translatedText) {
+            finalQuote = transData.responseData.translatedText
+          }
+        }
+
+        setQuote({ text: finalQuote, author: data.author })
+        setLoading(false)
+        return
+      }
+    } catch (e) {
+      console.error('Error fetching quote APIs:', e)
+      // Fallback local robusto (garantía de español si no hay internet)
+      const locales = [
+        { text: 'La educación es el arma más ponderosa para cambiar el mundo.', author: 'Nelson Mandela' },
+        { text: 'Cree en ti mismo y en todo lo que eres.', author: 'Christian D. Larson' },
+        { text: 'Aprender es descubrir que algo es posible.', author: 'Fritz Perls' },
+        { text: 'El único modo de hacer un gran trabajo es amar lo que haces.', author: 'Steve Jobs' }
+      ]
+      setQuote(locales[Math.floor(Math.random() * locales.length)])
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchQuote()
+  }, [])
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, var(--wine-800), var(--wine-900))',
+      color: 'white', padding: '1.5rem', borderRadius: '1rem',
+      marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem',
+      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', fontStyle: 'italic', lineHeight: 1.5, opacity: 0.95 }}>
+            "{quote.text}"
+          </p>
+          <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--gold, #FBBF24)' }}>
+            — {quote.author}
+          </p>
+        </div>
+        <button
+          onClick={fetchQuote}
+          disabled={loading}
+          style={{
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+            color: 'white', padding: '0.5rem', borderRadius: '0.5rem',
+            cursor: loading ? 'wait' : 'pointer', transition: 'background 0.2s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+          title="Nueva cita"
+        >
+          <svg style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const { user, profile } = useAuth()
@@ -29,7 +113,14 @@ export default function Dashboard() {
       let res
       if (isEstudiante) {
         res = await getMisCursos(user.id)
-        if (!res.error) setCursos((res.data ?? []).map(i => i.cursos).filter(Boolean))
+        if (!res.error) {
+          const misCursos = (res.data ?? []).map(i => i.cursos).filter(Boolean)
+          const conProgreso = await Promise.all(misCursos.map(async c => {
+            const { avance } = await getProgresoCursoEstudiante(c.id, user.id)
+            return { ...c, avance }
+          }))
+          setCursos(conProgreso)
+        }
       } else if (isDocente) {
         res = await getCursosByDocente(user.id)
         if (!res.error) setCursos(res.data ?? [])
@@ -60,6 +151,9 @@ export default function Dashboard() {
             {isAdmin && 'Vista general de todos los cursos en la plataforma.'}
           </p>
         </div>
+
+        {/* Motivational Quote para Estudiantes */}
+        {isEstudiante && <MotivationalQuote />}
 
         {/* Stats admin */}
         {isAdmin && adminStats && (

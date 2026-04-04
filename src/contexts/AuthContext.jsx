@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   // undefined = cargando | null = sin sesión | objeto = sesión activa
   const [session, setSession] = useState(undefined)
   const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile] = useState(undefined)
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
 
   useEffect(() => {
@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
+      else setProfile(null)
     })
 
     // Escuchar cambios de sesión en tiempo real
@@ -26,7 +27,11 @@ export function AuthProvider({ children }) {
         }
         setSession(session)
         setUser(session?.user ?? null)
-        if (session?.user) fetchProfile(session.user.id)
+        if (session?.user) {
+          // Si había un perfil null (de un cierre de sesión previo o inicio fresco), forzamos undefined
+          setProfile(undefined) 
+          fetchProfile(session.user.id)
+        }
         else setProfile(null)
       }
     )
@@ -40,7 +45,7 @@ export function AuthProvider({ children }) {
       .select('*, roles(nombre)')
       .eq('id', userId)
       .single()
-    setProfile(data)
+    setProfile(data || null)
   }
 
   async function signInWithGoogle() {

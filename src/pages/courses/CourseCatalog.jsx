@@ -51,7 +51,7 @@ export default function CourseCatalog() {
   }, [])
 
   const cursosFiltrados = cursos.filter(c => {
-    const coincideCategoria = categoriaFiltro === 'todas' || c.categoria_id === categoriaFiltro
+    const coincideCategoria = categoriaFiltro === 'todas' || String(c.categoria_id) === String(categoriaFiltro)
     const coincideBusqueda = c.titulo.toLowerCase().includes(busqueda.toLowerCase())
     return coincideCategoria && coincideBusqueda
   })

@@ -112,6 +112,19 @@ export default function CourseCard({ curso, badge }) {
           </p>
         )}
 
+        {/* Barra de Progreso */}
+        {curso?.avance !== undefined && (
+          <div style={{ marginTop: '0.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '0.35rem', fontWeight: 600 }}>
+              <span style={{ color: 'var(--wine-700)' }}>Progreso</span>
+              <span style={{ color: 'var(--wine-700)' }}>{Math.round(curso.avance)}%</span>
+            </div>
+            <div style={{ width: '100%', height: '8px', background: 'rgba(123, 45, 59, 0.15)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.round(curso.avance)}%`, height: '100%', background: 'linear-gradient(90deg, var(--wine-600), #E11D48)', borderRadius: '4px', transition: 'width 0.5s ease-out' }} />
+            </div>
+          </div>
+        )}
+
         {/* Botón al fondo */}
         <Link
           to={`/courses/${curso?.id}`}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
+import { supabase } from './lib/supabase'
 import Login from './components/auth/Login'
 import Dashboard from './pages/Dashboard'
 import CourseCatalog from './pages/courses/CourseCatalog'
@@ -13,6 +14,8 @@ import QuizAttempt from './pages/quiz/QuizAttempt'
 import ForoPage from './pages/forum/ForoPage'
 import HiloPage from './pages/forum/HiloPage'
 import SoportePage from './pages/support/SoportePage'
+import AdminPanel from './pages/admin/AdminPanel'
+import FaqChatbot from './components/ui/FaqChatbot'
 
 function LoadingScreen() {
   return (
@@ -107,13 +110,26 @@ function UpdatePasswordScreen() {
 }
 
 function App() {
-  const { session, isRecoveringPassword } = useAuth()
+  const { session, profile, isRecoveringPassword } = useAuth()
 
-  // undefined = supabase aún no respondió
-  if (session === undefined) return <LoadingScreen />
+  // undefined = supabase aún no respondió o perfil no ha cargado totalmente
+  if (session === undefined || (session && profile === undefined)) return <LoadingScreen />
 
   // null = sin sesión activa → forzar login
   if (!session) return <Login />
+
+  if (profile && profile.activo === false) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--wine-900)', color: 'white', padding: '2rem', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Cuenta desactivada</h1>
+        <p style={{ opacity: 0.8 }}>Tu cuenta ha sido desactivada por un administrador temporalmente. Si crees que se trata de un error o deseas validar la razón, por favor usa nuestro Chatbot de Asistencia en la esquina inferior derecha para obtener instrucciones de contacto.</p>
+        <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '2rem', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none', background: 'var(--gold)', color: 'var(--wine-900)', fontWeight: 700, cursor: 'pointer' }}>
+          Cerrar sesión
+        </button>
+        <FaqChatbot />
+      </div>
+    )
+  }
 
   // intercepts dashboard entry if coming via password recovery
   if (isRecoveringPassword) return <UpdatePasswordScreen />
@@ -135,8 +151,10 @@ function App() {
         <Route path="/courses/:id/foro" element={<ForoPage />} />
         <Route path="/courses/:id/foro/:hiloId" element={<HiloPage />} />
         <Route path="/soporte" element={<SoportePage />} />
+        <Route path="/admin" element={<AdminPanel />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <FaqChatbot />
     </BrowserRouter>
   )
 }

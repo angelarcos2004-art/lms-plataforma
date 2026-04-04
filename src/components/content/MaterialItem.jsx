@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { marcarMaterialComoVisto } from '../../lib/contentService'
 
 const OFFICE_EXTS = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'odt', 'odp', 'ods']
 const VIDEO_NATIVOS = ['mp4', 'webm', 'ogv']
@@ -45,6 +47,7 @@ const ARCHIVO_TIPOS = ['pdf', 'word', 'ppt', 'excel', 'video', 'audio', 'imagen'
 
 export default function MaterialItem({ material, onDelete, canDelete }) {
   const [expanded, setExpanded] = useState(false)
+  const { user } = useAuth()
   const tipo = detectarTipo(material.contenido)
   const config = TIPO_CONFIG[tipo] ?? TIPO_CONFIG.texto
   const IconComp = config.icon
@@ -56,7 +59,11 @@ export default function MaterialItem({ material, onDelete, canDelete }) {
   const esExpandible = esVideoNativo || esAudioNativo || tipo === 'texto'
   const esAbrirExterno = !esExpandible
 
-  function handleClick() {
+  async function handleClick() {
+    if (user) {
+      marcarMaterialComoVisto(user.id, material.id).catch(console.error)
+    }
+    
     if (esAbrirExterno) {
       window.open(resolverUrl(material.contenido), '_blank', 'noopener,noreferrer')
     } else {

@@ -5,7 +5,7 @@ import CourseCard from '../components/courses/CourseCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
 import { getMisCursos, getCursosByDocente, getTodosCursos } from '../lib/coursesService'
-import { getAdminStats, getNotificaciones } from '../lib/socialService'
+import { getAdminStats } from '../lib/socialService'
 
 export default function Dashboard() {
   const { user, profile } = useAuth()
@@ -14,7 +14,6 @@ export default function Dashboard() {
   const [cursos, setCursos] = useState([])
   const [loading, setLoading] = useState(true)
   const [adminStats, setAdminStats] = useState(null)
-  const [notifs, setNotifs] = useState([])
 
   const displayName =
     profile?.nombre_completo ??
@@ -31,8 +30,6 @@ export default function Dashboard() {
       if (isEstudiante) {
         res = await getMisCursos(user.id)
         if (!res.error) setCursos((res.data ?? []).map(i => i.cursos).filter(Boolean))
-        const { data: nData } = await getNotificaciones(user.id, 5)
-        setNotifs(nData ?? [])
       } else if (isDocente) {
         res = await getCursosByDocente(user.id)
         if (!res.error) setCursos(res.data ?? [])
@@ -80,23 +77,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Notificaciones recientes (estudiante) */}
-        {isEstudiante && notifs.filter(n => !n.leida).length > 0 && (
-          <div style={{ marginBottom: '2rem', background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem' }}>
-            <h2 style={{ margin: '0 0 0.875rem', color: 'var(--wine-800)', fontSize: '1rem', fontWeight: 700 }}>Notificaciones recientes</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {notifs.filter(n => !n.leida).slice(0, 3).map(n => (
-                <div key={n.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.625rem 0.875rem', borderRadius: '0.5rem', background: 'var(--wine-50)', border: '1px solid var(--wine-100)' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--wine-600)', marginTop: '6px', flexShrink: 0 }} />
-                  <div>
-                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>{n.titulo}</p>
-                    {n.mensaje && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{n.mensaje}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Sección de cursos */}
         <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>

@@ -17,7 +17,9 @@ export default function HiloPage() {
   const [respuesta, setRespuesta] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
+  const [respondeA, setRespondeA] = useState(null) // { id, nombre, contenido }
   const bottomRef = useRef(null)
+  const textareaRef = useRef(null)
 
   const cursoTitulo = hilo?.foros?.cursos?.titulo ?? 'Curso'
 
@@ -57,11 +59,21 @@ export default function HiloPage() {
     if (!respuesta.trim()) return
     setSending(true)
     setSendError(null)
-    const { data, error } = await crearMensaje(hiloId, user.id, respuesta.trim())
+    const { error } = await crearMensaje(hiloId, user.id, respuesta.trim(), respondeA?.id ?? null)
     setSending(false)
     if (error) { setSendError('No se pudo enviar el mensaje.'); return }
-    setMensajes(prev => [...prev, data])
+    // No actualizamos estado aquí: el canal realtime recarga los mensajes automáticamente
     setRespuesta('')
+    setRespondeA(null)
+  }
+
+  function handleIniciarRespuesta(msg) {
+    setRespondeA({
+      id: msg.id,
+      nombre: msg.usuarios?.nombre_completo ?? 'Usuario',
+      contenido: msg.contenido,
+    })
+    setTimeout(() => textareaRef.current?.focus(), 50)
   }
 
   async function handleEliminarMensaje(id) {
@@ -146,6 +158,21 @@ export default function HiloPage() {
                           <span>· {tiempoRelativo(msg.created_at)}</span>
                         </span>
                         <div style={{ background: esPropio ? 'var(--wine-50)' : 'var(--bg-card)', border: `1px solid ${esPropio ? 'var(--wine-200)' : 'var(--wine-100)'}`, borderRadius: esPropio ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '0.75rem 1rem', position: 'relative' }}>
+                          {/* Preview del mensaje al que responde */}
+                          {msg.responde_a_id && (() => {
+                            const original = mensajes.find(m => m.id === msg.responde_a_id)
+                            if (!original) return null
+                            return (
+                              <div style={{ background: 'rgba(107,114,128,0.08)', borderLeft: '3px solid var(--wine-300)', borderRadius: '4px', padding: '0.375rem 0.625rem', marginBottom: '0.5rem' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--wine-600)' }}>
+                                  {original.usuarios?.nombre_completo ?? 'Usuario'}
+                                </span>
+                                <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '260px' }}>
+                                  {original.contenido}
+                                </p>
+                              </div>
+                            )
+                          })()}
                           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                             {msg.contenido}
                           </p>
@@ -159,6 +186,15 @@ export default function HiloPage() {
                             </button>
                           )}
                         </div>
+                        {/* Botón responder (solo en mensajes de otros) */}
+                        {!esPropio && (
+                          <button
+                            onClick={() => handleIniciarRespuesta(msg)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--wine-600)', fontSize: '0.72rem', fontWeight: 600, padding: '2px 4px', alignSelf: 'flex-start' }}
+                          >
+                            ↩ Responder
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
@@ -169,11 +205,21 @@ export default function HiloPage() {
 
             {/* Formulario de respuesta */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem' }}>
+              {/* Indicador "respondiendo a" */}
+              {respondeA && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(92,26,40,0.06)', border: '1px solid var(--wine-100)', borderRadius: '6px', padding: '0.375rem 0.75rem', marginBottom: '0.625rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--wine-700)' }}>
+                    Respondiendo a <strong>{respondeA.nombre}</strong>: <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px', display: 'inline-block', verticalAlign: 'bottom' }}>{respondeA.contenido}</span>
+                  </span>
+                  <button onClick={() => setRespondeA(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0 2px' }} title="Cancelar respuesta">✕</button>
+                </div>
+              )}
               <form onSubmit={handleResponder} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
                 <textarea
+                  ref={textareaRef}
                   value={respuesta}
                   onChange={e => setRespuesta(e.target.value)}
-                  placeholder="Escribe tu respuesta..."
+                  placeholder={respondeA ? `Respondiendo a ${respondeA.nombre}...` : 'Escribe tu respuesta...'}
                   rows={3}
                   style={{
                     flex: 1, padding: '0.625rem 0.875rem', borderRadius: '0.5rem',

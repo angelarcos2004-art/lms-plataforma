@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { crearNotificacion } from './socialService'
 
 export async function getCursos() {
   const { data: cursos, error } = await supabase
@@ -175,7 +176,29 @@ export async function getCategorias() {
 
 // Crear un nuevo curso
 export async function crearCurso(data) {
-  return supabase.from('cursos').insert(data).select().single()
+  const { data: curso, error } = await supabase.from('cursos').insert(data).select().single()
+
+  if (!error && curso) {
+    // Notificar a todos los administradores
+    const { data: admins } = await supabase
+      .from('perfiles_publicos')
+      .select('id')
+      .eq('rol', 'administrador')
+
+    await Promise.all(
+      (admins ?? []).map(admin =>
+        crearNotificacion(
+          admin.id,
+          'Nuevo curso creado',
+          `El docente creó el curso "${curso.titulo}". Revísalo cuando puedas.`,
+          'sistema',
+          `/courses/${curso.id}`
+        )
+      )
+    )
+  }
+
+  return { data: curso, error }
 }
 
 // Actualizar un curso existente

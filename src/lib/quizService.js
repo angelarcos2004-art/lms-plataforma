@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { crearNotificacion } from './socialService'
 
 // ── Cuestionarios ─────────────────────────────────────────────────────────────
 
@@ -100,7 +101,8 @@ export async function submitIntento(intentoId, respuestasData, puntajeObtenido, 
       .upsert(respuestasData, { onConflict: 'intento_id,pregunta_id' })
     if (error) return { error }
   }
-  return supabase
+
+  const { data: intento, error } = await supabase
     .from('intentos_cuestionario')
     .update({
       fecha_fin: new Date().toISOString(),
@@ -110,4 +112,38 @@ export async function submitIntento(intentoId, respuestasData, puntajeObtenido, 
     .eq('id', intentoId)
     .select()
     .single()
+
+  if (error || !intento) return { data: intento, error }
+
+  // Verificar si TODOS los alumnos ya completaron este cuestionario
+  const { data: quiz } = await supabase
+    .from('cuestionarios')
+    .select('titulo, unidades(curso_id, cursos(titulo, docente_id))')
+    .eq('id', intento.cuestionario_id)
+    .single()
+
+  if (quiz) {
+    const cursoId = quiz.unidades?.curso_id
+    const docenteId = quiz.unidades?.cursos?.docente_id
+    const cursoTitulo = quiz.unidades?.cursos?.titulo
+
+    if (cursoId && docenteId) {
+      const [{ count: totalInscritos }, { count: totalCompletados }] = await Promise.all([
+        supabase.from('inscripciones').select('*', { count: 'exact', head: true }).eq('curso_id', cursoId).eq('estado', 'activa'),
+        supabase.from('intentos_cuestionario').select('*', { count: 'exact', head: true }).eq('cuestionario_id', intento.cuestionario_id).not('fecha_fin', 'is', null),
+      ])
+
+      if (totalInscritos > 0 && totalCompletados >= totalInscritos) {
+        await crearNotificacion(
+          docenteId,
+          `Todos completaron: ${quiz.titulo}`,
+          `Todos los alumnos de "${cursoTitulo}" han terminado el cuestionario.`,
+          'tarea',
+          `/courses/${cursoId}/cuestionarios/${intento.cuestionario_id}`
+        )
+      }
+    }
+  }
+
+  return { data: intento, error: null }
 }

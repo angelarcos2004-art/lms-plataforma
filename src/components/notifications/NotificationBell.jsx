@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { getNotificaciones, getUnreadCount, marcarLeida, marcarTodasLeidas } from '../../lib/socialService'
+import { getNotificaciones, getUnreadCount, marcarLeida, marcarTodasLeidas, limpiarNotificaciones } from '../../lib/socialService'
+import { supabase } from '../../lib/supabase'
 
 const TIPO_COLOR = {
   tarea:        { bg: 'rgba(168,69,88,0.1)',   color: 'var(--wine-600)',  label: 'Tarea' },
@@ -21,10 +22,24 @@ export default function NotificationBell() {
   const [loadingNotifs, setLoadingNotifs] = useState(false)
   const wrapperRef = useRef(null)
 
-  // Cargar conteo al montar
+  // Cargar conteo al montar + suscripción realtime al badge
   useEffect(() => {
     if (!user) return
     getUnreadCount(user.id).then(({ count }) => setUnread(count ?? 0))
+
+    const ch = supabase
+      .channel(`notifs-bell-${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notificaciones',
+        filter: `usuario_id=eq.${user.id}`,
+      }, () => {
+        setUnread(prev => prev + 1)
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(ch)
   }, [user])
 
   // Cerrar dropdown al hacer click fuera
@@ -64,6 +79,12 @@ export default function NotificationBell() {
   async function handleMarcarTodas() {
     await marcarTodasLeidas(user.id)
     setNotifs(prev => prev.map(n => ({ ...n, leida: true })))
+    setUnread(0)
+  }
+
+  async function handleLimpiarTodo() {
+    await limpiarNotificaciones(user.id)
+    setNotifs([])
     setUnread(0)
   }
 
@@ -114,11 +135,18 @@ export default function NotificationBell() {
             <span style={{ fontWeight: 700, color: 'var(--wine-800)', fontSize: '0.9rem' }}>
               Notificaciones {unread > 0 && <span style={{ color: 'var(--error)', fontSize: '0.8rem' }}>({unread} nuevas)</span>}
             </span>
-            {unread > 0 && (
-              <button onClick={handleMarcarTodas} style={{ background: 'none', border: 'none', color: 'var(--wine-600)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-                Marcar todas como leídas
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {unread > 0 && (
+                <button onClick={handleMarcarTodas} style={{ background: 'none', border: 'none', color: 'var(--wine-600)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                  Marcar leídas
+                </button>
+              )}
+              {notifs.length > 0 && (
+                <button onClick={handleLimpiarTodo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                  Limpiar todo
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Lista */}

@@ -91,16 +91,65 @@ export async function getMensajesByHilo(hiloId) {
   }
 }
 
-export async function crearMensaje(hiloId, autorId, contenido) {
+export async function crearMensaje(hiloId, autorId, contenido, respondeAId = null) {
   const { data: mensaje, error } = await supabase
     .from('mensajes_foro')
-    .insert({ hilo_id: hiloId, autor_id: autorId, contenido })
+    .insert({ hilo_id: hiloId, autor_id: autorId, contenido, responde_a_id: respondeAId || null })
     .select()
     .single()
 
   if (error || !mensaje) return { data: null, error }
 
-  const { data: autor } = await supabase.from('perfiles_publicos').select('*').eq('id', autorId).single()
+  const [{ data: autor }, { data: hilo }] = await Promise.all([
+    supabase.from('perfiles_publicos').select('*').eq('id', autorId).single(),
+    supabase.from('hilos_foro').select('titulo, foros(curso_id, cursos(titulo, docente_id))').eq('id', hiloId).single(),
+  ])
+
+  const notifPromises = []
+  const notificados = new Set()
+
+  // Notificar al autor original si le respondieron directamente
+  if (respondeAId) {
+    const { data: msgOriginal } = await supabase
+      .from('mensajes_foro')
+      .select('autor_id')
+      .eq('id', respondeAId)
+      .single()
+
+    if (msgOriginal && msgOriginal.autor_id !== autorId && hilo) {
+      notificados.add(msgOriginal.autor_id)
+      notifPromises.push(
+        crearNotificacion(
+          msgOriginal.autor_id,
+          `Te respondieron en el foro de ${hilo.foros?.cursos?.titulo}`,
+          `Alguien respondió a tu comentario en el hilo "${hilo.titulo}".`,
+          'foro',
+          `/courses/${hilo.foros?.curso_id}/foro/${hiloId}`
+        )
+      )
+    }
+  }
+
+  // Notificar al docente cuando alguien publica (evitar duplicado si ya fue notificado)
+  if (hilo) {
+    const docenteId = hilo.foros?.cursos?.docente_id
+    const cursoId = hilo.foros?.curso_id
+    const cursoTitulo = hilo.foros?.cursos?.titulo
+    if (docenteId && docenteId !== autorId && !notificados.has(docenteId)) {
+      notifPromises.push(
+        crearNotificacion(
+          docenteId,
+          `Nuevo mensaje en el foro de ${cursoTitulo}`,
+          `En el hilo "${hilo.titulo}" se publicó un nuevo mensaje.`,
+          'foro',
+          `/courses/${cursoId}/foro/${hiloId}`
+        )
+      )
+    }
+  }
+
+  await Promise.all(notifPromises)
+
   return { data: { ...mensaje, usuarios: autor }, error: null }
 }
 
@@ -110,13 +159,22 @@ export async function eliminarMensaje(id) {
 
 // ── Notificaciones ────────────────────────────────────────────────────────────
 
-export async function getNotificaciones(usuarioId, limit = 15) {
+export async function crearNotificacion(usuarioId, titulo, mensaje, tipo = 'sistema', urlDestino = null) {
   return supabase
+    .from('notificaciones')
+    .insert({ usuario_id: usuarioId, titulo, mensaje, tipo, url_destino: urlDestino })
+}
+
+export async function getNotificaciones(usuarioId, limit = 15) {
+  const hace7dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data, error } = await supabase
     .from('notificaciones')
     .select('*')
     .eq('usuario_id', usuarioId)
+    .gte('created_at', hace7dias)
     .order('created_at', { ascending: false })
     .limit(limit)
+  return { data, error }
 }
 
 export async function getUnreadCount(usuarioId) {
@@ -137,6 +195,13 @@ export async function marcarTodasLeidas(usuarioId) {
     .update({ leida: true })
     .eq('usuario_id', usuarioId)
     .eq('leida', false)
+}
+
+export async function limpiarNotificaciones(usuarioId) {
+  return supabase
+    .from('notificaciones')
+    .delete()
+    .eq('usuario_id', usuarioId)
 }
 
 // ── Stats para admin ──────────────────────────────────────────────────────────

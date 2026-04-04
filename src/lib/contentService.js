@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { crearNotificacion } from './socialService'
 
 // ── Unidades ────────────────────────────────────────────────────────────────
 
@@ -120,11 +121,45 @@ export async function getMisEntregas(estudianteId, tareaIds) {
 }
 
 export async function crearEntrega(tareaId, estudianteId, contenido) {
-  return supabase
+  const { data: entrega, error } = await supabase
     .from('entregas')
     .insert({ tarea_id: tareaId, estudiante_id: estudianteId, contenido_entrega: contenido })
     .select()
     .single()
+
+  if (error || !entrega) return { data: entrega, error }
+
+  // Verificar si TODOS los alumnos inscritos ya entregaron
+  const { data: tarea } = await supabase
+    .from('tareas')
+    .select('titulo, unidades(curso_id, cursos(titulo, docente_id))')
+    .eq('id', tareaId)
+    .single()
+
+  if (tarea) {
+    const cursoId = tarea.unidades?.curso_id
+    const docenteId = tarea.unidades?.cursos?.docente_id
+    const cursoTitulo = tarea.unidades?.cursos?.titulo
+
+    if (cursoId && docenteId) {
+      const [{ count: totalInscritos }, { count: totalEntregas }] = await Promise.all([
+        supabase.from('inscripciones').select('*', { count: 'exact', head: true }).eq('curso_id', cursoId).eq('estado', 'activa'),
+        supabase.from('entregas').select('*', { count: 'exact', head: true }).eq('tarea_id', tareaId),
+      ])
+
+      if (totalInscritos > 0 && totalEntregas >= totalInscritos) {
+        await crearNotificacion(
+          docenteId,
+          `Todos entregaron: ${tarea.titulo}`,
+          `Todos los alumnos de "${cursoTitulo}" han entregado esta tarea.`,
+          'tarea',
+          `/courses/${cursoId}/tareas/${tareaId}`
+        )
+      }
+    }
+  }
+
+  return { data: entrega, error: null }
 }
 
 export async function actualizarEntrega(entregaId, contenido) {
@@ -179,18 +214,89 @@ export async function getMensajesTarea(tareaId) {
 }
 
 export async function enviarMensajeTarea(tareaId, autorId, contenido) {
-  return supabase
+  const { data: msg, error } = await supabase
     .from('mensajes_tarea')
     .insert({ tarea_id: tareaId, autor_id: autorId, contenido })
     .select()
     .single()
+
+  if (error || !msg) return { data: null, error }
+
+  // Determinar a quién notificar
+  const { data: tarea } = await supabase
+    .from('tareas')
+    .select('titulo, unidades(curso_id, cursos(titulo, docente_id))')
+    .eq('id', tareaId)
+    .single()
+
+  if (tarea) {
+    const docenteId = tarea.unidades?.cursos?.docente_id
+    const cursoId = tarea.unidades?.curso_id
+    const cursoTitulo = tarea.unidades?.cursos?.titulo
+    const url = `/courses/${cursoId}/tareas/${tareaId}`
+
+    if (autorId === docenteId) {
+      // Docente responde → notificar a los alumnos que entregaron
+      const { data: entregas } = await supabase
+        .from('entregas')
+        .select('estudiante_id')
+        .eq('tarea_id', tareaId)
+
+      const estudianteIds = [...new Set(entregas?.map(e => e.estudiante_id) ?? [])]
+      await Promise.all(
+        estudianteIds.map(eId =>
+          crearNotificacion(
+            eId,
+            `Respuesta del docente en: ${tarea.titulo}`,
+            `El docente respondió en el chat de "${tarea.titulo}" de ${cursoTitulo}.`,
+            'tarea',
+            url
+          )
+        )
+      )
+    } else if (docenteId) {
+      // Alumno escribe → notificar al docente
+      await crearNotificacion(
+        docenteId,
+        `Nuevo mensaje en tarea: ${tarea.titulo}`,
+        `Un alumno escribió en el chat de "${tarea.titulo}" de ${cursoTitulo}.`,
+        'tarea',
+        url
+      )
+    }
+  }
+
+  return { data: msg, error: null }
 }
 
 export async function calificarEntrega(entregaId, calificacion, retroalimentacion, calificadoPor) {
-  return supabase
+  const { data, error } = await supabase
     .from('entregas')
     .update({ calificacion, retroalimentacion, calificado_por: calificadoPor })
     .eq('id', entregaId)
     .select()
     .single()
+
+  if (!error && data) {
+    const { data: tarea } = await supabase
+      .from('tareas')
+      .select('titulo, puntaje_maximo, unidades(curso_id, cursos(titulo))')
+      .eq('id', data.tarea_id)
+      .single()
+
+    if (tarea) {
+      const ptsText = tarea.puntaje_maximo
+        ? `${calificacion}/${tarea.puntaje_maximo} pts`
+        : `${calificacion} pts`
+      await crearNotificacion(
+        data.estudiante_id,
+        `Tarea calificada: ${tarea.titulo}`,
+        `Obtuviste ${ptsText} en "${tarea.titulo}" de ${tarea.unidades?.cursos?.titulo}.`,
+        'calificacion',
+        `/courses/${tarea.unidades?.curso_id}/tareas/${data.tarea_id}`
+      )
+    }
+  }
+
+  return { data, error }
 }

@@ -7,6 +7,8 @@
   --wine-600: #7B2D3B;
   --wine-800: #5C1A28;
   --wine-900: #3A0F19;
+  /* Fondo del Navbar (separado para no colisionar con dark mode) */
+  --navbar-bg: #5C1A28;
 
   /* Acento dorado */
   --gold: #C9A84C;
@@ -30,17 +32,26 @@
 }
 
 [data-theme="dark"] {
-  --wine-50: #3A0F19;
-  --wine-100: #5C1A28;
-  --wine-200: #7B2D3B;
-  --wine-400: #A84558;
-  --wine-600: #D4899A;
-  --wine-800: #F0D0D6;
-  --wine-900: #FDF8F8;
-  --bg-page: #1A1A1A;
-  --bg-card: #2A2A2A;
-  --bg-section: #222222;
-  --text-primary: #F1F0F0;
+  /* Navbar usa --navbar-bg (no cambia con el tema) */
+  --navbar-bg: #2C1018;
+
+  /* Wine como COLOR DE TEXTO sobre fondos oscuros — tiene que ser claro */
+  --wine-900: #F5D0DA;
+  --wine-800: #EAA8B8;   /* títulos principales: rosa wine legible */
+  --wine-600: #D4899A;   /* subtítulos y acentos */
+  --wine-400: #C8788A;
+  --wine-200: #5C1A28;   /* bordes sutiles */
+  --wine-100: #3D1020;
+  --wine-50:  #2A1018;
+  /* Dorado */
+  --gold: #D4A84C;
+  /* Fondos oscuros */
+  --bg-page:    #111111;
+  --bg-card:    #1E1E1E;
+  --bg-section: #181818;
+  /* Texto */
+  --text-primary:   #F0F0F0;
   --text-secondary: #9CA3AF;
-  --text-on-wine: #1E1E1E;
+  --text-on-wine:   #FFFFFF;
+  --text-on-gold:   #1A0A10;
 }

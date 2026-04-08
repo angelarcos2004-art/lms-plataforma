@@ -21,3 +21,83 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Navbar responsive ─────────────────────────────────────────── */
+.paideia-navbar {
+  background: var(--navbar-bg);
+  color: white;
+  padding: 0 2rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+}
+
+.navbar-nav-desktop { display: flex; gap: 0.25rem; }
+.navbar-hamburger   { display: none !important; }
+.navbar-username    { display: inline; }
+.navbar-signout     { display: inline-flex !important; }
+
+.navbar-mobile-menu {
+  display: none;
+  width: 100%;
+  padding: 0.5rem 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  background: var(--navbar-bg);
+}
+
+@media (max-width: 768px) {
+  .paideia-navbar         { padding: 0 1rem; height: auto; min-height: 56px; }
+  .navbar-nav-desktop     { display: none !important; }
+  .navbar-hamburger       { display: flex !important; }
+  .navbar-username        { display: none; }
+  .navbar-signout         { display: none !important; }
+  .navbar-mobile-menu     { display: flex; }
+}
+
+/* ── Responsividad general ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Páginas principales */
+  main { padding: 1.25rem 1rem !important; }
+
+  /* Tablas con scroll horizontal */
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* Grids de estadísticas */
+  .stats-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* Admin panel tabs */
+  .admin-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Cards en columna */
+  .card-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Dark mode: ajustes extra ──────────────────────────────────── */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--wine-200);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--text-secondary);
+}

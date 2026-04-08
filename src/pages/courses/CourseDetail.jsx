@@ -11,12 +11,14 @@ import {
 } from '../../lib/coursesService'
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import CourseStudentsTab from '../../components/courses/CourseStudentsTab'
+import SalaVirtual from '../../components/courses/SalaVirtual'
 
 export default function CourseDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { isEstudiante, isDocente, isAdmin } = useRole()
+  const displayName = profile?.nombre_completo ?? user?.email ?? 'Usuario'
 
   const [curso, setCurso] = useState(null)
   const [inscripcion, setInscripcion] = useState(null) // { id, estado } | null
@@ -377,6 +379,16 @@ export default function CourseDetail() {
                   {puedeGestionar ? 'Gestionar contenido' : 'Ir al contenido'}
                 </Link>
               </div>
+            )}
+
+            {/* ── SALA VIRTUAL (inscritos activos + docente + admin) ── */}
+            {(inscritoActivo || inscritoFinalizado || puedeGestionar) && (
+              <SalaVirtual
+                cursoId={id}
+                cursoTitulo={curso?.titulo}
+                userName={displayName}
+                esDocente={puedeGestionar}
+              />
             )}
 
             {/* ── ALUMNOS Y CALIFICACIONES (solo docente/admin) ── */}

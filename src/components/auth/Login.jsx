@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 
 const SPIN_KEYFRAME = `
@@ -19,6 +19,46 @@ export default function Login() {
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  // Seguridad Login con Persistencia
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    return parseInt(localStorage.getItem('login_failed_attempts') || '0', 10)
+  })
+  const [lockedUntil, setLockedUntil] = useState(() => {
+    const val = localStorage.getItem('login_locked_until')
+    return val ? parseInt(val, 10) : null
+  })
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  useEffect(() => {
+    localStorage.setItem('login_failed_attempts', failedAttempts.toString())
+  }, [failedAttempts])
+
+  useEffect(() => {
+    if (lockedUntil) {
+      localStorage.setItem('login_locked_until', lockedUntil.toString())
+    } else {
+      localStorage.removeItem('login_locked_until')
+    }
+  }, [lockedUntil])
+
+  useEffect(() => {
+    let interval;
+    if (lockedUntil) {
+      interval = setInterval(() => {
+        const remaining = Math.ceil((lockedUntil - Date.now()) / 1000)
+        if (remaining <= 0) {
+          setLockedUntil(null)
+          setFailedAttempts(0)
+          setTimeLeft(0)
+          clearInterval(interval)
+        } else {
+          setTimeLeft(remaining)
+        }
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [lockedUntil])
 
   function switchMode(next) {
     setMode(next)
@@ -42,15 +82,29 @@ export default function Login() {
 
   async function handleEmailLogin(e) {
     e.preventDefault()
+
+    if (lockedUntil && Date.now() < lockedUntil) {
+      setError(`Demasiados fallos. Intenta nuevamente en ${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')} min.`)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
-
       await signInWithPassword(email, password)
+      setFailedAttempts(0)
     } catch (err) {
-      setError(err.message === 'Invalid login credentials'
-        ? 'Correo o contraseña incorrectos.'
-        : 'No se pudo iniciar sesión. Intenta de nuevo.')
+      const newFails = failedAttempts + 1
+      setFailedAttempts(newFails)
+
+      if (newFails >= 5) {
+        setLockedUntil(Date.now() + 15 * 60 * 1000) // 15 mins bloqueado
+        setError(`Cuenta bloqueada por seguridad. Intenta de nuevo en 15 minutos.`)
+      } else {
+        setError(err.message === 'Invalid login credentials'
+          ? `Correo o contraseña incorrectos. (Intento ${newFails}/5)`
+          : 'No se pudo iniciar sesión. Intenta de nuevo.')
+      }
       setLoading(false)
     }
   }
@@ -200,7 +254,10 @@ export default function Login() {
                 value={password} onChange={e => setPassword(e.target.value)} required
               />
 
-              <SubmitButton loading={loading} label="Inicia sesión" />
+              <SubmitButton 
+                loading={loading || !!lockedUntil} 
+                label={lockedUntil ? `Bloqueado (${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')})` : "Inicia sesión"} 
+              />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>

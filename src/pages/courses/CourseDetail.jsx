@@ -9,6 +9,8 @@ import {
   getSolicitudesPendientes, aprobarSolicitud, rechazarSolicitud,
   eliminarCurso,
 } from '../../lib/coursesService'
+import ConfirmModal from '../../components/ui/ConfirmModal'
+import CourseStudentsTab from '../../components/courses/CourseStudentsTab'
 
 export default function CourseDetail() {
   const { id } = useParams()
@@ -30,10 +32,12 @@ export default function CourseDetail() {
   const [solicitudes, setSolicitudes] = useState([])
   const [copiado, setCopiado] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [confirmModal, setConfirmModal] = useState(null)
 
   const esDocente = isDocente && curso?.docente_id === user?.id
   const puedeGestionar = esDocente || isAdmin
   const inscritoActivo = inscripcion?.estado === 'activa'
+  const inscritoFinalizado = inscripcion?.estado === 'finalizado'
 
   useEffect(() => {
     async function cargar() {
@@ -85,18 +89,25 @@ export default function CourseDetail() {
     }
   }
 
-  async function handleDesinscribirse() {
-    if (!confirm('¿Cancelar tu inscripción en este curso?')) return
-    setActionLoading(true)
-    setActionMsg(null)
-    const { error: err } = await desinscribirse(id, user.id)
-    setActionLoading(false)
-    if (err) {
-      setActionMsg({ tipo: 'error', texto: 'No se pudo cancelar la inscripción.' })
-    } else {
-      setInscripcion(null)
-      setActionMsg(null)
-    }
+  async function requestDesinscribirse() {
+    setConfirmModal({
+      title: '¿Cancelar inscripción?',
+      description: 'Dejarás de pertenecer a este curso y no tendrás acceso al contenido ni a las calificaciones.',
+      confirmLabel: 'Desinscribirme',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        setActionLoading(true)
+        setActionMsg(null)
+        const { error: err } = await desinscribirse(id, user.id)
+        setActionLoading(false)
+        if (err) {
+          setActionMsg({ tipo: 'error', texto: 'No se pudo cancelar la inscripción.' })
+        } else {
+          setInscripcion(null)
+          setActionMsg(null)
+        }
+      }
+    })
   }
 
   async function handleAprobar(inscripcionId) {
@@ -206,7 +217,7 @@ export default function CourseDetail() {
 
                   {/* Botón cancelar inscripción (estudiante activo) */}
                   {isEstudiante && inscritoActivo && (
-                    <button onClick={handleDesinscribirse} disabled={actionLoading} style={{ padding: '0.625rem 1.25rem', borderRadius: '0.5rem', cursor: 'pointer', border: '1px solid var(--wine-200)', background: 'white', color: 'var(--wine-600)', fontWeight: 600, fontSize: '0.875rem' }}>
+                    <button onClick={requestDesinscribirse} disabled={actionLoading} style={{ padding: '0.625rem 1.25rem', borderRadius: '0.5rem', cursor: 'pointer', border: '1px solid var(--wine-200)', background: 'white', color: 'var(--wine-600)', fontWeight: 600, fontSize: '0.875rem' }}>
                       {actionLoading ? 'Procesando...' : 'Cancelar inscripción'}
                     </button>
                   )}
@@ -229,7 +240,7 @@ export default function CourseDetail() {
             )}
 
             {/* ── ESTUDIANTE: Acceso al curso ── */}
-            {isEstudiante && !inscritoActivo && (
+            {isEstudiante && !inscritoActivo && !inscritoFinalizado && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.75rem' }}>
 
                 {inscripcion?.estado === 'pendiente' ? (
@@ -244,7 +255,7 @@ export default function CourseDetail() {
                         <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>El docente revisará tu solicitud pronto.</p>
                       </div>
                     </div>
-                    <button onClick={handleDesinscribirse} disabled={actionLoading} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'none', border: '1px solid var(--wine-100)', borderRadius: '0.375rem', padding: '0.375rem 0.875rem', cursor: 'pointer' }}>
+                    <button onClick={requestDesinscribirse} disabled={actionLoading} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'none', border: '1px solid var(--wine-100)', borderRadius: '0.375rem', padding: '0.375rem 0.875rem', cursor: 'pointer' }}>
                       Cancelar solicitud
                     </button>
                   </div>
@@ -343,7 +354,7 @@ export default function CourseDetail() {
             )}
 
             {/* ── Foro (solo inscritos activos / docente / admin) ── */}
-            {(inscritoActivo || puedeGestionar) && (
+            {(inscritoActivo || inscritoFinalizado || puedeGestionar) && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
                   <h2 style={{ margin: '0 0 0.25rem', color: 'var(--wine-800)', fontSize: '1.1rem', fontWeight: 700 }}>Foro del curso</h2>
@@ -356,7 +367,7 @@ export default function CourseDetail() {
             )}
 
             {/* ── Contenido (solo inscritos activos / docente / admin) ── */}
-            {(inscritoActivo || puedeGestionar) && (
+            {(inscritoActivo || inscritoFinalizado || puedeGestionar) && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
                   <h2 style={{ margin: '0 0 0.25rem', color: 'var(--wine-800)', fontSize: '1.1rem', fontWeight: 700 }}>Contenido del curso</h2>
@@ -366,6 +377,11 @@ export default function CourseDetail() {
                   {puedeGestionar ? 'Gestionar contenido' : 'Ir al contenido'}
                 </Link>
               </div>
+            )}
+
+            {/* ── ALUMNOS Y CALIFICACIONES (solo docente/admin) ── */}
+            {puedeGestionar && (
+              <CourseStudentsTab cursoId={id} />
             )}
 
           </div>
@@ -405,6 +421,15 @@ export default function CourseDetail() {
           </div>
         </div>
       )}
+      {/* Modal confirmación general */}
+      <ConfirmModal
+        open={confirmModal !== null}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description}
+        confirmLabel={confirmModal?.confirmLabel}
+        onConfirm={confirmModal?.onConfirm ?? (() => {})}
+        onCancel={() => setConfirmModal(null)}
+      />
     </div>
   )
 }

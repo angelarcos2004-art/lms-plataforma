@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
 
   useEffect(() => {
-    // Leer sesión existente al montar
+    // 1. Leer sesión actual (cubre recargas normales y sesión ya almacenada)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
       else setProfile(null)
     })
 
-    // Escuchar cambios de sesión en tiempo real
+    // 2. Escuchar todos los cambios posteriores (login, logout, refresh, OAuth callback, magic links)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
@@ -28,11 +28,11 @@ export function AuthProvider({ children }) {
         setSession(session)
         setUser(session?.user ?? null)
         if (session?.user) {
-          // Si había un perfil null (de un cierre de sesión previo o inicio fresco), forzamos undefined
-          setProfile(undefined) 
+          setProfile(undefined)
           fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
         }
-        else setProfile(null)
       }
     )
 

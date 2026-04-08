@@ -4,9 +4,26 @@ import Navbar from '../components/layout/Navbar'
 import CourseCard from '../components/courses/CourseCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
-import { getMisCursos, getCursosByDocente, getTodosCursos } from '../lib/coursesService'
+import { getMisCursos, getCursosByDocente, getTodosCursos, getTodasCalificacionesEstudiante } from '../lib/coursesService'
 import { getAdminStats } from '../lib/socialService'
 import { getProgresoCursoEstudiante } from '../lib/contentService'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const getBase64ImageFromUrl = (imageUrl) => new Promise((resolve, reject) => {
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth || 400
+    canvas.height = img.naturalHeight || 300
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    resolve(canvas.toDataURL('image/png'))
+  }
+  img.onerror = () => reject(new Error('No se pudo cargar imagen'))
+  img.src = imageUrl
+})
 
 function MotivationalQuote() {
   const [quote, setQuote] = useState({ text: 'El éxito es la suma de pequeños esfuerzos repetidos día tras día.', author: 'Robert Collier' })
@@ -99,6 +116,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [adminStats, setAdminStats] = useState(null)
 
+  // Filtros Admin Catálogo Unificado
+  const [searchAdmin, setSearchAdmin] = useState('')
+
+  // Calificaciones (solo estudiante)
+  const [calificaciones, setCalificaciones] = useState([])
+  const [generandoPDF, setGenerandoPDF] = useState(false)
+
   const displayName =
     profile?.nombre_completo ??
     user?.user_metadata?.nombre ??
@@ -121,6 +145,8 @@ export default function Dashboard() {
           }))
           setCursos(conProgreso)
         }
+        const { data: cals } = await getTodasCalificacionesEstudiante(user.id)
+        setCalificaciones(cals ?? [])
       } else if (isDocente) {
         res = await getCursosByDocente(user.id)
         if (!res.error) setCursos(res.data ?? [])
@@ -134,6 +160,85 @@ export default function Dashboard() {
     }
     cargar()
   }, [user, isEstudiante, isDocente, isAdmin])
+
+  const displayedCursos = isAdmin 
+    ? cursos.filter(c => {
+        const matchSearch = c.titulo?.toLowerCase().includes(searchAdmin.toLowerCase()) || 
+                            (c.docente?.nombre_completo || '').toLowerCase().includes(searchAdmin.toLowerCase())
+        return matchSearch
+      })
+    : cursos
+
+  const cursosConCal = calificaciones.filter(c => c.calificacion_final !== null && c.tareas_calificadas > 0)
+  const calAprobadas = cursosConCal.filter(c => c.calificacion_final >= 60).length
+  const calReprobadas = cursosConCal.length - calAprobadas
+
+  const generarPDFEstudiante = async () => {
+    if (!cursosConCal.length) return
+    setGenerandoPDF(true)
+    try {
+      const qcData = {
+        type: 'doughnut',
+        data: {
+          labels: [`Aprobadas (${calAprobadas})`, `Reprobadas (${calReprobadas})`],
+          datasets: [{ backgroundColor: ['#16a34a', '#dc2626'], data: [calAprobadas, calReprobadas] }]
+        },
+        options: {
+          title: { display: true, text: 'Mi Rendimiento Academico', fontSize: 14 },
+          legend: { position: 'bottom' }
+        }
+      }
+      const qcUrl = `https://quickchart.io/chart?w=400&h=300&c=${encodeURIComponent(JSON.stringify(qcData))}`
+      let chartBase64 = null
+      try { chartBase64 = await getBase64ImageFromUrl(qcUrl) } catch {}
+
+      const doc = new jsPDF()
+
+      doc.setFillColor(159, 18, 57)
+      doc.rect(0, 0, 210, 30, 'F')
+      doc.setFontSize(15)
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.text('REPORTE DE CALIFICACIONES', 105, 13, { align: 'center' })
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`${displayName}   |   Fecha: ${new Date().toLocaleDateString('es-MX')}`, 105, 23, { align: 'center' })
+
+      autoTable(doc, {
+        startY: 36,
+        headStyles: { fillColor: [159, 18, 57], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [254, 248, 248] },
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: { 2: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'center', fontStyle: 'bold' } },
+        head: [['Materia', 'Tareas calificadas', 'Calificación Final', 'Estatus']],
+        body: cursosConCal.map(c => [
+          c.curso?.titulo ?? 'Sin nombre',
+          `${c.tareas_calificadas}`,
+          `${c.calificacion_final ?? 0} / 100`,
+          c.calificacion_final >= 60 ? 'APROBADO' : 'REPROBADO'
+        ])
+      })
+
+      if (chartBase64) {
+        const tableEnd = doc.lastAutoTable?.finalY ?? 36
+        const posY = tableEnd + 12 + 65 > 280 ? (() => { doc.addPage(); return 20 })() : tableEnd + 12
+        doc.addImage(chartBase64, 'PNG', 55, posY, 100, 65)
+      }
+
+      const total = doc.getNumberOfPages()
+      for (let p = 1; p <= total; p++) {
+        doc.setPage(p)
+        doc.setFontSize(8)
+        doc.setTextColor(160)
+        doc.setFont('helvetica', 'normal')
+        doc.text('Generado automaticamente por Paideia LMS', 105, 290, { align: 'center' })
+      }
+
+      doc.save(`calificaciones_${displayName.replace(/\s+/g, '_')}_${Date.now()}.pdf`)
+    } finally {
+      setGenerandoPDF(false)
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
@@ -177,10 +282,23 @@ export default function Dashboard() {
           <h2 style={{ margin: 0, color: 'var(--wine-800)', fontSize: '1.2rem', fontWeight: 700 }}>
             {isEstudiante && 'Mis Cursos Inscritos'}
             {isDocente && 'Mis Cursos'}
-            {isAdmin && 'Todos los Cursos'}
+            {isAdmin && 'Todos los Cursos (Catálogo)'}
           </h2>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            {isAdmin && (
+              <input
+                type="text"
+                placeholder="Buscar curso o maestro..."
+                value={searchAdmin}
+                onChange={e => setSearchAdmin(e.target.value)}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '0.5rem',
+                  border: '1px solid var(--wine-200)', outline: 'none',
+                  fontSize: '0.875rem', minWidth: '250px'
+                }}
+              />
+            )}
             {isEstudiante && (
               <Link
                 to="/courses"
@@ -222,7 +340,7 @@ export default function Dashboard() {
         )}
 
         {/* Estado vacío */}
-        {!loading && cursos.length === 0 && (
+        {!loading && displayedCursos.length === 0 && (
           <div style={{
             background: 'var(--bg-card)', border: '1px solid var(--wine-100)',
             borderRadius: '1rem', padding: '3rem 2rem', textAlign: 'center',
@@ -279,13 +397,107 @@ export default function Dashboard() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '1.5rem',
           }}>
-            {cursos.map(curso => (
+            {displayedCursos.map(curso => (
               <CourseCard
                 key={curso.id}
                 curso={curso}
                 badge={isEstudiante ? 'Inscrito' : null}
               />
             ))}
+          </div>
+        )}
+
+        {/* ── Sección Calificaciones (solo estudiante) ── */}
+        {isEstudiante && !loading && (
+          <div style={{ marginTop: '3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <h2 style={{ margin: 0, color: 'var(--wine-800)', fontSize: '1.2rem', fontWeight: 700 }}>
+                Mis Calificaciones
+              </h2>
+              {cursosConCal.length > 0 && (
+                <button
+                  onClick={generarPDFEstudiante}
+                  disabled={generandoPDF}
+                  style={{ padding: '0.55rem 1.2rem', background: generandoPDF ? 'var(--wine-200)' : 'var(--wine-600)', color: 'white', border: 'none', borderRadius: '0.5rem', fontWeight: 700, fontSize: '0.875rem', cursor: generandoPDF ? 'wait' : 'pointer' }}
+                >
+                  {generandoPDF ? '⚙️ Generando...' : '📄 Descargar PDF con gráfica'}
+                </button>
+              )}
+            </div>
+
+            {calificaciones.length === 0 ? (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <p style={{ margin: '0 0 0.4rem', fontSize: '1.5rem' }}>📋</p>
+                <p style={{ margin: 0 }}>Aún no tienes materias inscritas con tareas calificadas.</p>
+              </div>
+            ) : (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', overflow: 'hidden' }}>
+                {/* Resumen estadístico */}
+                {cursosConCal.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, borderBottom: '1px solid var(--wine-100)' }}>
+                    {[
+                      { label: 'Materias con tareas', value: cursosConCal.length, color: 'var(--wine-700)' },
+                      { label: 'Aprobadas', value: calAprobadas, color: 'var(--success)' },
+                      { label: 'Reprobadas', value: calReprobadas, color: 'var(--error)' },
+                    ].map((s, i) => (
+                      <div key={s.label} style={{ padding: '1.25rem', textAlign: 'center', borderRight: i < 2 ? '1px solid var(--wine-100)' : 'none' }}>
+                        <p style={{ margin: '0 0 0.25rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+                        <span style={{ fontSize: '2rem', fontWeight: 800, color: s.color }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tabla de materias */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--wine-800)', color: 'white' }}>
+                        <th style={{ padding: '0.875rem 1rem', textAlign: 'left', fontWeight: 700 }}>Materia</th>
+                        <th style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 700 }}>Tareas calificadas</th>
+                        <th style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 700 }}>Promedio</th>
+                        <th style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 700 }}>Estatus</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calificaciones.map((c, i) => {
+                        const tieneCal = c.calificacion_final !== null && c.tareas_calificadas > 0
+                        return (
+                          <tr key={c.inscripcion_id} style={{ borderBottom: '1px solid var(--wine-100)', background: i % 2 === 0 ? 'white' : 'var(--bg-page)' }}>
+                            <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: 'var(--wine-900)' }}>
+                              <Link to={`/courses/${c.curso?.id}`} style={{ color: 'var(--wine-700)', textDecoration: 'none' }}>
+                                {c.curso?.titulo ?? 'Sin nombre'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: '0.875rem 1rem', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              {tieneCal ? c.tareas_calificadas : '—'}
+                            </td>
+                            <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
+                              {tieneCal ? (
+                                <span style={{ padding: '0.25rem 0.75rem', borderRadius: '4px', fontWeight: 800, background: c.calificacion_final >= 60 ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)', color: c.calificacion_final >= 60 ? 'var(--success)' : 'var(--error)' }}>
+                                  {c.calificacion_final} / 100
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Sin tareas calificadas</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
+                              {tieneCal ? (
+                                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: c.calificacion_final >= 60 ? 'var(--success)' : 'var(--error)' }}>
+                                  {c.calificacion_final >= 60 ? '✓ APROBADO' : '✗ REPROBADO'}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>En curso</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

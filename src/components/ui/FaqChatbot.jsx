@@ -1,37 +1,104 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRole } from '../../hooks/useRole'
 
-const FAQ_OPTIONS = [
-  { id: 'contact', title: '👥 Contactar Soporte' },
-  { id: 'disabled', title: '🔒 Cuenta Desactivada' },
-  { id: 'recover', title: '🔑 Recuperar Contraseña' }
+const PREGUNTAS_ESTUDIANTE = [
+  { id: 'calificaciones', title: '📊 ¿Dónde veo mis calificaciones?' },
+  { id: 'tareas', title: '📝 ¿Cómo subo mis trabajos?' },
+  { id: 'examenes', title: '⏱️ Dudas sobre Exámenes/Quizzes' },
+  { id: 'password', title: '🔑 Recuperar mi Contraseña' },
+  { id: 'no_veo_curso', title: '🚫 No veo mis materias asignadas' },
+  { id: 'foros', title: '💬 Reglas de los Foros' },
+  { id: 'faltas', title: '📅 Faltas e Inasistencias' },
+  { id: 'soporte_tecnico', title: '🛠️ Reportar falla técnica' },
+  { id: 'certificado', title: '📜 ¿Cómo obtengo mi certificado?' },
+  { id: 'notificaciones', title: '🔔 ¿Cómo funcionan los avisos?' },
+  { id: 'correo', title: '📧 Cambiar correo o datos' },
+  { id: 'bajas', title: '🚪 Proceso para darse de baja' },
+  { id: 'horario', title: '⌚ Horarios de la plataforma' },
+  { id: 'maestro', title: '👨‍🏫 El profesor no me responde' },
+  { id: 'contacto_admin', title: '📞 Correo de Administrador/Soporte' },
+  { id: 'disabled', title: '🔒 ¿Qué significa Cuenta Desactivada?' }
 ]
 
-const RESPONSES = {
-  contact: 'Puedes mandar un correo directamente a nuestros administradores a: ayavpn.2025@gmail.com. Te responderemos en breve.',
-  disabled: 'Si intentas entrar y dice "Cuenta desactivada", significa que un administrador ha bloqueado tu ingreso temporalmente por falta de pagos o disciplina. Por favor escribe a ayavpn.2025@gmail.com detallando tu caso.',
-  recover: 'Para recuperar tu contraseña, utiliza el botón "¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión. Te llegará un enlace a tu correo.'
+const RESPUESTAS_ESTUDIANTE = {
+  calificaciones: 'Entra al detalle de la materia y dirígete al apartado "Calificaciones". Ahí verás el puntaje de cada entrega.',
+  tareas: 'En tu curso, vas a "Contenido", buscas la unidad correspondiente y verás la caja para subir archivo PDF/Word.',
+  examenes: 'Recuerda que una vez presionado "Comenzar" corre el temporizador en tiempo real y no se puede pausar.',
+  password: 'En la ventana inicial de Login usa la opción "¿Olvidaste tu contraseña?". Te llegará confirmación si pones tu correo.',
+  no_veo_curso: 'Solo los Administradores matriculan alumnos. Escribe a administración si perdiste el acceso repentinamente.',
+  foros: 'Todos pueden comentar dudas. Mantén siempre el respeto académico; los moderadores vigilan activamente el foro.',
+  faltas: 'El sistema no toma asistencia automática; pacta justificaciones de faltas directamente por mensaje con tu profesor.',
+  soporte_tecnico: 'Fallas del sitio repórtalas al correo: ayavpn.2025@gmail.com con capturas de pantalla.',
+  certificado: 'Te llegará al acabar todo tu temario con promedio aprobatorio al final de semestre escolar.',
+  notificaciones: 'La campana arriba a la derecha te avisará de nuevas tareas o correcciones marcadas en tus foros.',
+  correo: 'Escribe a control escolar técnico indicando cambio formal de ID o correo institucional.',
+  bajas: 'El abandono escolar de la plataforma se reporta con Administración, dando clic en "Baja definitiva".',
+  horario: 'Sincronizado a zona horaria CDMX. Ten cuidado con la hora de cierre (23:59) al subir proyectos.',
+  maestro: 'Si tu profesor no ha corregido en 5 días hábiles, habla con un administrador o jefe de grupo.',
+  contacto_admin: 'El Administrador general asiste todas las excepciones técnicas o académicas severas a través de: ayavpn.2025@gmail.com',
+  disabled: 'Implica una suspensión de cuenta o veto del plantel. No podrás pasar del Login a tu cuenta.'
+}
+
+const PREGUNTAS_DOCENTE = [
+  { id: 'crear_curso', title: '➕ ¿Cómo abro un curso nuevo?' },
+  { id: 'calificar', title: '💯 ¿Dónde califico entregas?' },
+  { id: 'mis_alumnos', title: '👥 Ver a mis inscritos' },
+  { id: 'foros_nuevo', title: '📝 Iniciar debate en Foros' },
+  { id: 'modulos', title: '📂 Crear Unidades (Contenidos)' },
+  { id: 'quitar_alumno', title: '🚫 Dar de baja a un alumno' },
+  { id: 'examenes_hacer', title: '⏱️ Diseñar Evaluaciones/Quizzes' },
+  { id: 'fechas_limite', title: '⏳ Colocar fecha límite en Tarea' },
+  { id: 'archivos_pesados', title: '💾 Límite de megas (Archivos)' },
+  { id: 'ver_progreso', title: '📈 Analíticas del grupo' },
+  { id: 'foro_moderacion', title: '🔨 Moderar a los alumnos' },
+  { id: 'editar_curso', title: '⚙️ Cambiar Banner e Imagen' },
+  { id: 'duplicar_curso', title: '♊ Reutilizar / Duplicar cursos' },
+  { id: 'password', title: '🔑 Cambiar mi contraseña' },
+  { id: 'soporte_tecnico', title: '🛠️ Falla del portal (Bug)' },
+  { id: 'contacto_admin', title: '📞 Correo de Administrador/Soporte' },
+  { id: 'disabled', title: '🔒 Cuenta Desactivada' }
+]
+
+const RESPUESTAS_DOCENTE = {
+  crear_curso: 'En tu Inicio (Dashboard) dirígete a la derecha y encontrarás el botón "+ Crear Curso".',
+  calificar: 'Accede a tu materia. En las pestañas de control aparecerá la lista de archivos por revisar.',
+  mis_alumnos: 'El panel interno del curso te listará a tus alumnos oficialmente inscritos en tu materia.',
+  foros_nuevo: 'Sí, tú y los administradores son los únicos que pueden iniciar debates nuevos. Los alumnos solo comentan.',
+  modulos: 'Puedes agregar PDF y videos estructurados como Módulos con el botón "Añadir Unidad" dentro de tu curso.',
+  quitar_alumno: 'Para proteger el registro y las calificaciones previas, solo el Administrador puede dar de baja alumnos.',
+  examenes_hacer: 'Podrás redactar preguntas de Opción Múltiple o Verdadero/Falso para cada unidad desde el panel del curso.',
+  fechas_limite: 'Al redactar una tarea, elige su fecha de entrega. Si un alumno sube tarde, se indicará en color rojo.',
+  archivos_pesados: 'El límite general para subir PDFs o Presentaciones es de 50MB. En videos es mejor pegar el enlace de Vimeo o YouTube.',
+  ver_progreso: 'Tendrás cuadros de estadísticas básicas para que conozcas en qué porcentaje tus alumnos ven tu material.',
+  foro_moderacion: 'En caso de que un alumno falte al respecto en el chat, repórtalo con capturas a la dirección escolar.',
+  editar_curso: 'Desde tu rol de profesor, al ver tu materia presiona el botón "Configuración" para cambiar texto e imagen.',
+  duplicar_curso: 'Aún no existe el botón de clonar 1:1. Debes crear el cascarón de ciclo escolar nuevo a mano.',
+  password: 'Si olvidas tu clave institucional, usa "Olvidé mi contraseña" en la página principal para restaurarla.',
+  soporte_tecnico: 'Cualquier error de navegación grave: reporta con evidencias a ayavpn.2025@gmail.com',
+  contacto_admin: 'Directorio principal de atención a docentes y directivos administrativos: ayavpn.2025@gmail.com',
+  disabled: 'Si ves el panel de Cuenta Desactivada, tu usuario fue suspendido por la administración. Comunícate directamente al correo de control para validar el caso.'
 }
 
 export default function FaqChatbot() {
-  const { isAdmin } = useRole()
+  const { isAdmin, isDocente } = useRole()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     { type: 'bot', text: '¡Hola! Soy el asistente virtual de Paideia. ¿En qué te puedo ayudar hoy?' }
   ])
   const messagesEndRef = useRef(null)
 
-  // Si es administrador, no mostramos el bot
+  // Todos los hooks DEBEN estar antes de cualquier return condicional (Reglas de Hooks de React)
+  useEffect(() => {
+    if (isOpen && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, isOpen])
+
+  // Si es administrador, no mostramos el bot (DESPUÉS de todos los hooks)
   if (isAdmin) return null
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (isOpen) scrollToBottom()
-  }, [messages, isOpen])
+  const opcionesDinamicas = isDocente ? PREGUNTAS_DOCENTE : PREGUNTAS_ESTUDIANTE
+  const respuestasDinamicas = isDocente ? RESPUESTAS_DOCENTE : RESPUESTAS_ESTUDIANTE
 
   const handleOptionClick = (option) => {
     // Agregar el mensaje del usuario
@@ -39,7 +106,7 @@ export default function FaqChatbot() {
 
     // Simular un pequeño retraso para la respuesta del bot
     setTimeout(() => {
-      setMessages(prev => [...prev, { type: 'bot', text: RESPONSES[option.id] }])
+      setMessages(prev => [...prev, { type: 'bot', text: respuestasDinamicas[option.id] }])
     }, 600)
   }
 
@@ -59,8 +126,8 @@ export default function FaqChatbot() {
           width: '60px',
           height: '60px',
           borderRadius: '50%',
-          background: 'var(--wine-700)',
-          color: 'white',
+          background: 'var(--gold)',
+          color: 'var(--wine-900)',
           border: 'none',
           boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
           cursor: 'pointer',
@@ -68,22 +135,28 @@ export default function FaqChatbot() {
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'transform 0.2s, background 0.2s',
-          zIndex: 9999,
-          transform: isOpen ? 'scale(0.8)' : 'scale(1)',
-          opacity: isOpen ? 0 : 1,
-          pointerEvents: isOpen ? 'none' : 'auto'
+          zIndex: 10001,
+          transform: isOpen ? 'scale(0.9)' : 'scale(1)',
+          opacity: 1,
+          pointerEvents: 'auto'
         }}
-        title="Abrir Asistente"
+        title={isOpen ? "Cerrar Asistente" : "Abrir Asistente"}
       >
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '30px', height: '30px' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
+        {isOpen ? (
+          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: '28px', height: '28px' }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '30px', height: '30px' }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        )}
       </button>
 
       {/* Ventana de Chat */}
       <div style={{
         position: 'fixed',
-        bottom: isOpen ? '2rem' : '-100%',
+        bottom: isOpen ? '6rem' : '-100%',
         right: '2rem',
         width: '350px',
         maxWidth: 'calc(100vw - 4rem)',
@@ -119,11 +192,6 @@ export default function FaqChatbot() {
               <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>Soporte Automático</p>
             </div>
           </div>
-          <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '0.25rem' }}>
-            <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: '24px', height: '24px' }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
         {/* Mensajes */}
@@ -160,8 +228,8 @@ export default function FaqChatbot() {
           <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
             Selecciona una opción:
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {FAQ_OPTIONS.map(opt => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+            {opcionesDinamicas.map(opt => (
               <button
                 key={opt.id}
                 onClick={() => handleOptionClick(opt)}
@@ -175,7 +243,8 @@ export default function FaqChatbot() {
                   fontWeight: 600,
                   fontSize: '0.85rem',
                   textAlign: 'left',
-                  transition: 'background 0.2s'
+                  transition: 'background 0.2s',
+                  flexShrink: 0
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--wine-100)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'var(--wine-50)'}

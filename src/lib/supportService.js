@@ -1,45 +1,68 @@
 import { supabase } from './supabase'
-import { crearNotificacion } from './socialService'
 
-// ── Chats ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SOPORTE — Tickets / Chats (tablas: chats_soporte, mensajes_soporte)
+// ─────────────────────────────────────────────────────────────────────────────
 
+/** Obtiene los chats de soporte de un usuario específico */
 export async function getMisChats(userId) {
-  return supabase
+  const { data, error } = await supabase
     .from('chats_soporte')
-    .select('*')
+    .select('*, usuario:usuarios(nombre_completo)')
     .eq('usuario_id', userId)
-    .order('prioridad', { ascending: true })   // 'alta' < 'normal' → docentes primero
     .order('updated_at', { ascending: false })
+  return { data, error }
 }
 
+/** Obtiene todos los chats (para admin), docentes (alta) primero */
 export async function getTodosLosChats() {
-  const { data: chats, error } = await supabase
+  const { data, error } = await supabase
     .from('chats_soporte')
-    .select('*')
-    .order('prioridad', { ascending: true })   // alta primero
+    .select('*, usuario:usuarios(nombre_completo)')
+    .order('prioridad', { ascending: true })   // 'alta' < 'normal' alfabéticamente → docentes primero
     .order('updated_at', { ascending: false })
-
-  if (error || !chats?.length) return { data: chats ?? [], error }
-
-  const ids = [...new Set(chats.map(c => c.usuario_id))]
-  const { data: perfiles } = await supabase
-    .from('perfiles_publicos')
-    .select('id, nombre_completo')
-    .in('id', ids)
-
-  return {
-    data: chats.map(c => ({ ...c, usuario: perfiles?.find(p => p.id === c.usuario_id) }))
-  }
+  return { data, error }
 }
 
-export async function crearChatSoporte(userId, asunto, prioridad) {
-  return supabase
+/** Crea un ticket de soporte nuevo */
+export async function crearChatSoporte(userId, asunto, prioridad = 'normal') {
+  const { data, error } = await supabase
     .from('chats_soporte')
-    .insert({ usuario_id: userId, asunto, prioridad })
+    .insert([{ usuario_id: userId, asunto, prioridad, estado: 'abierto' }])
     .select()
     .single()
+  return { data, error }
 }
 
+/** Obtiene los mensajes de un chat de soporte */
+export async function getMensajesChat(chatId) {
+  const { data, error } = await supabase
+    .from('mensajes_soporte')
+    .select('*, autor:usuarios(nombre_completo)')
+    .eq('chat_id', chatId)
+    .order('created_at', { ascending: true })
+  return { data, error }
+}
+
+/** Envía un mensaje en un chat de soporte y actualiza updated_at del chat */
+export async function enviarMensajeChat(chatId, autorId, contenido) {
+  const { data, error } = await supabase
+    .from('mensajes_soporte')
+    .insert([{ chat_id: chatId, autor_id: autorId, contenido }])
+    .select()
+    .single()
+
+  if (!error) {
+    await supabase
+      .from('chats_soporte')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', chatId)
+  }
+
+  return { data, error }
+}
+
+/** Cambia el estado de un chat (abierto / en_progreso / cerrado) */
 export async function actualizarEstadoChat(chatId, estado) {
   const { data, error } = await supabase
     .from('chats_soporte')
@@ -47,68 +70,122 @@ export async function actualizarEstadoChat(chatId, estado) {
     .eq('id', chatId)
     .select()
     .single()
+  return { data, error }
+}
 
-  // Notificar al dueño del ticket cuando se cierra
-  if (!error && data && estado === 'cerrado') {
-    await crearNotificacion(
-      data.usuario_id,
-      'Tu solicitud de soporte fue cerrada',
-      `La consulta "${data.asunto}" fue marcada como resuelta.`,
-      'sistema',
-      '/soporte'
-    )
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORTES (tabla: reportes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Crea un reporte contra un usuario desde el foro.
+ */
+export async function reportarUsuario(reportadoId, motivo) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: new Error('Usuario no autenticado') }
+
+  const { error } = await supabase
+    .from('reportes')
+    .insert([{
+      reportador_id: user.id,
+      reportado_id: reportadoId,
+      motivo,
+      estado: 'pendiente'
+    }])
+
+  return { data: null, error }
+}
+
+/**
+ * Obtiene la lista de reportes para el panel de administración
+ */
+export async function getReportesParaAdmin() {
+  const { data, error } = await supabase
+    .from('reportes')
+    .select(`
+      id,
+      motivo,
+      estado,
+      created_at,
+      reportador:usuarios!reportes_reportador_id_fkey(id, nombre_completo, correo:email),
+      reportado:usuarios!reportes_reportado_id_fkey(id, nombre_completo, correo:email)
+    `)
+    .order('created_at', { ascending: false })
 
   return { data, error }
 }
 
-// ── Mensajes ──────────────────────────────────────────────────────────────────
-
-export async function getMensajesChat(chatId) {
-  const { data: msgs, error } = await supabase
-    .from('mensajes_soporte')
-    .select('id, chat_id, autor_id, contenido, created_at')
-    .eq('chat_id', chatId)
-    .order('created_at', { ascending: true })
-
-  if (error || !msgs?.length) return { data: msgs ?? [], error }
-
-  const ids = [...new Set(msgs.map(m => m.autor_id))]
-  const { data: perfiles } = await supabase
-    .from('perfiles_publicos')
-    .select('id, nombre_completo')
-    .in('id', ids)
-
-  return {
-    data: msgs.map(m => ({ ...m, autor: perfiles?.find(p => p.id === m.autor_id) }))
-  }
+/**
+ * Marca un reporte como "revisado" o "pendiente"
+ */
+export async function actualizarEstadoReporte(reporteId, nuevoEstado) {
+  const { data, error } = await supabase
+    .from('reportes')
+    .update({ estado: nuevoEstado })
+    .eq('id', reporteId)
+    .select()
+    
+  return { data, error }
 }
 
-export async function enviarMensajeChat(chatId, autorId, contenido) {
-  const { data: msg, error } = await supabase
-    .from('mensajes_soporte')
-    .insert({ chat_id: chatId, autor_id: autorId, contenido })
-    .select()
-    .single()
+/**
+ * Elimina un reporte
+ */
+export async function eliminarReporte(reporteId) {
+  const { error } = await supabase
+    .from('reportes')
+    .delete()
+    .eq('id', reporteId)
+    
+  return { error }
+}
 
-  if (error || !msg) return { data: null, error }
+/**
+ * -------------------
+ * CHAT DE STAFF (WhatsApp style)
+ * -------------------
+ */
 
-  // Notificar al dueño del ticket cuando el admin/soporte le responde
-  const { data: chat } = await supabase
-    .from('chats_soporte')
-    .select('usuario_id, asunto')
-    .eq('id', chatId)
-    .single()
+export async function enviarMensajeStaff(userId, mensaje) {
+  const { error } = await supabase
+    .from('staff_chat')
+    .insert([{ emisor_id: userId, mensaje }])
 
-  if (chat && chat.usuario_id !== autorId) {
-    await crearNotificacion(
-      chat.usuario_id,
-      'Nueva respuesta en tu solicitud de soporte',
-      `Tu consulta "${chat.asunto}" recibió una respuesta.`,
-      'sistema',
-      '/soporte'
-    )
-  }
+  return { error }
+}
 
-  return { data: msg, error: null }
+export async function limpiarChatStaff() {
+  // Borra todos los mensajes del staff chat
+  // REQUIERE política RLS: permitir DELETE a usuarios con rol 'administrador'
+  const { error, count } = await supabase
+    .from('staff_chat')
+    .delete({ count: 'exact' })
+    .gte('created_at', '2000-01-01') // condición siempre verdadera para borrar todo
+  return { error, count }
+}
+
+export async function getMensajesStaff() {
+  const { data, error } = await supabase
+    .from('staff_chat')
+    .select(`
+      id,
+      mensaje,
+      created_at,
+      emisor:usuarios!staff_chat_emisor_id_fkey(id, nombre_completo, roles(nombre))
+    `)
+    .order('created_at', { ascending: true })
+
+  // Aplanamos el nombre del rol desde la relación anidada
+  const mensajesMapeados = data?.map(m => ({
+    id: m.id,
+    mensaje: m.mensaje,
+    created_at: m.created_at,
+    emisor: {
+      id: m.emisor?.id,
+      nombre_completo: m.emisor?.nombre_completo,
+      rol: m.emisor?.roles?.nombre
+    }
+  })) || []
+
+  return { data: mensajesMapeados, error }
 }

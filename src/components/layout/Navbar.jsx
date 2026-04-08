@@ -50,9 +50,14 @@ export default function Navbar() {
 
         <nav style={{ display: 'flex', gap: '0.25rem' }}>
           <NavItem to="/" active={pathname === '/'}>Inicio</NavItem>
-          <NavItem to="/courses" active={pathname.startsWith('/courses')}>Catálogo</NavItem>
+          {(!isAdmin && !isDocente) && (
+            <NavItem to="/courses" active={pathname.startsWith('/courses')}>Catálogo</NavItem>
+          )}
           {(isDocente || isAdmin) && (
             <NavItem to="/courses/new" active={pathname === '/courses/new'}>+ Crear Curso</NavItem>
+          )}
+          {(isDocente || isAdmin) && (
+            <NavItem to="/staff" active={pathname === '/staff'}>💬 Sala de Staff</NavItem>
           )}
           <NavItem to="/soporte" active={pathname === '/soporte'}>Soporte</NavItem>
           {isAdmin && (

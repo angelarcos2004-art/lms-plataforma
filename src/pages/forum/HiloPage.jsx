@@ -4,6 +4,7 @@ import Navbar from '../../components/layout/Navbar'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import { getHiloById, getMensajesByHilo, crearMensaje, eliminarMensaje } from '../../lib/socialService'
+import { reportarUsuario } from '../../lib/supportService'
 import { supabase } from '../../lib/supabase'
 
 export default function HiloPage() {
@@ -18,6 +19,9 @@ export default function HiloPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
   const [respondeA, setRespondeA] = useState(null) // { id, nombre, contenido }
+  const [reportModal, setReportModal] = useState(null)
+  const [reportMotivo, setReportMotivo] = useState('')
+  const [reportMsg, setReportMsg] = useState(null)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -80,6 +84,21 @@ export default function HiloPage() {
     if (!confirm('¿Eliminar este mensaje?')) return
     await eliminarMensaje(id)
     setMensajes(prev => prev.filter(m => m.id !== id))
+  }
+
+  async function handleEnviarReporte() {
+    if (!reportMotivo.trim()) return
+    const { error } = await reportarUsuario(reportModal.usuarioId, reportMotivo.trim())
+    if (error) {
+      setReportMsg({ tipo: 'error', texto: 'No se pudo enviar el reporte' })
+    } else {
+      setReportMsg({ tipo: 'ok', texto: 'Reporte enviado a los administradores.' })
+      setTimeout(() => {
+        setReportModal(null)
+        setReportMotivo('')
+        setReportMsg(null)
+      }, 2000)
+    }
   }
 
   return (
@@ -188,12 +207,20 @@ export default function HiloPage() {
                         </div>
                         {/* Botón responder (solo en mensajes de otros) */}
                         {!esPropio && (
-                          <button
-                            onClick={() => handleIniciarRespuesta(msg)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--wine-600)', fontSize: '0.72rem', fontWeight: 600, padding: '2px 4px', alignSelf: 'flex-start' }}
-                          >
-                            ↩ Responder
-                          </button>
+                          <div style={{ display: 'flex', gap: '1rem', alignSelf: 'flex-start' }}>
+                            <button
+                              onClick={() => handleIniciarRespuesta(msg)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--wine-600)', fontSize: '0.72rem', fontWeight: 600, padding: '2px 4px' }}
+                            >
+                              ↩ Responder
+                            </button>
+                            <button
+                              onClick={() => setReportModal({ usuarioId: msg.autor_id, nombre: msg.usuarios?.nombre_completo ?? 'Usuario' })}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 600, padding: '2px 4px' }}
+                            >
+                              🚩 Reportar
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -246,6 +273,40 @@ export default function HiloPage() {
           </div>
         )}
       </main>
+
+      {/* Modal de Reporte */}
+      {reportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '1rem' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '1.25rem', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h2 style={{ margin: '0 0 0.5rem', color: 'var(--error)', fontSize: '1.2rem', fontWeight: 800, textAlign: 'center' }}>
+              Reportar Usuario
+            </h2>
+            <p style={{ margin: '0 0 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center' }}>
+              ¿Por qué deseas reportar a <strong style={{ color: 'var(--wine-800)' }}>{reportModal.nombre}</strong>?
+            </p>
+            {reportMsg && (
+              <div style={{ marginBottom: '1rem', padding: '0.5rem', borderRadius: '0.375rem', fontSize: '0.82rem', textAlign: 'center', background: reportMsg.tipo === 'error' ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: reportMsg.tipo === 'error' ? 'var(--error)' : 'var(--success)' }}>
+                {reportMsg.texto}
+              </div>
+            )}
+            <textarea
+              value={reportMotivo}
+              onChange={e => setReportMotivo(e.target.value)}
+              placeholder="Ej. Lenguaje inapropiado, spam..."
+              rows={3}
+              style={{ width: '100%', padding: '0.625rem 0.875rem', borderRadius: '0.5rem', border: '1px solid var(--wine-200)', marginBottom: '1rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => { setReportModal(null); setReportMotivo(''); setReportMsg(null); }} style={{ flex: 1, padding: '0.7rem', borderRadius: '0.625rem', border: '1px solid var(--wine-100)', background: 'white', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}>
+                Cancelar
+              </button>
+              <button onClick={handleEnviarReporte} disabled={!reportMotivo.trim()} style={{ flex: 1, padding: '0.7rem', borderRadius: '0.625rem', border: 'none', background: 'var(--error)', color: 'white', fontWeight: 700, cursor: reportMotivo.trim() ? 'pointer' : 'not-allowed' }}>
+                Enviar Reporte
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,6 +15,7 @@ import ForoPage from './pages/forum/ForoPage'
 import HiloPage from './pages/forum/HiloPage'
 import SoportePage from './pages/support/SoportePage'
 import AdminPanel from './pages/admin/AdminPanel'
+import StaffRoom from './pages/support/StaffRoom'
 import FaqChatbot from './components/ui/FaqChatbot'
 
 function LoadingScreen() {
@@ -151,6 +152,7 @@ function App() {
         <Route path="/courses/:id/foro" element={<ForoPage />} />
         <Route path="/courses/:id/foro/:hiloId" element={<HiloPage />} />
         <Route path="/soporte" element={<SoportePage />} />
+        <Route path="/staff" element={<StaffRoom />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -11,6 +11,6 @@ export function useRole() {
     isAdmin: roleName === ROLES.admin,
     isDocente: roleName === ROLES.docente,
     isEstudiante: roleName === ROLES.estudiante,
-    isLoading: profile === null && roleName === null,
+    isLoading: profile === undefined,
   }
 }

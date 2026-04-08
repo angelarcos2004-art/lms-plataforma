@@ -4,7 +4,7 @@ import Navbar from '../../components/layout/Navbar'
 import UnidadSection from '../../components/content/UnidadSection'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRole } from '../../hooks/useRole'
-import { getCursoById } from '../../lib/coursesService'
+import { getCursoById, checkInscripcion } from '../../lib/coursesService'
 import { getUnidadesByCurso, crearUnidad, getMisEntregas } from '../../lib/contentService'
 import { getMisIntentos } from '../../lib/quizService'
 
@@ -19,6 +19,7 @@ export default function CourseContent() {
   const [intentosMap, setIntentosMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [inscripcion, setInscripcion] = useState(null)
 
   // Formulario nueva unidad
   const [showUnidadForm, setShowUnidadForm] = useState(false)
@@ -62,6 +63,12 @@ export default function CourseContent() {
         return
       }
       setCurso(cursoData)
+      
+      if (isEstudiante && user) {
+        const { data: insData } = await checkInscripcion(cursoId, user.id)
+        if (insData) setInscripcion(insData)
+      }
+
       await cargarUnidades()
       setLoading(false)
     }
@@ -112,6 +119,13 @@ export default function CourseContent() {
 
         {!loading && !error && (
           <>
+            {isEstudiante && inscripcion?.estado === 'finalizado' && (
+              <div style={{ padding: '1rem', background: 'rgba(217,119,6,0.1)', border: '1px solid var(--gold)', borderRadius: '0.75rem', marginBottom: '2rem', color: 'var(--gold-dark)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span>🏆</span>
+                Este curso ha concluido. El Docente ha publicado el Acta Final en la vista principal o en la pestaña de Materiales.
+              </div>
+            )}
+            
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
               <div>

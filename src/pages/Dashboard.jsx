@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
 import { getMisCursos, getCursosByDocente, getTodosCursos, getTodasCalificacionesEstudiante } from '../lib/coursesService'
 import { getAdminStats } from '../lib/socialService'
-import { getProgresoCursoEstudiante } from '../lib/contentService'
+import { getProgresoCursoEstudiante, getMisEntregas } from '../lib/contentService'
+import { getEventosCalendario } from '../lib/calendarioService'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -108,6 +109,123 @@ function MotivationalQuote() {
   )
 }
 
+function diasRestantes(fechaStr) {
+  if (!fechaStr) return null
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const fecha = new Date(fechaStr); fecha.setHours(0, 0, 0, 0)
+  const diff = Math.round((fecha - hoy) / 86400000)
+  if (diff === 0) return { label: 'Hoy', color: 'var(--error)' }
+  if (diff === 1) return { label: 'Mañana', color: 'var(--warning)' }
+  if (diff <= 7) return { label: `En ${diff} días`, color: 'var(--warning)' }
+  return { label: fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }), color: 'var(--text-secondary)' }
+}
+
+function ActividadesPendientesWidget({ tareas, entregasIds }) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const pendientes = tareas
+    .filter(t => !entregasIds.includes(t.id))
+    .filter(t => !t.fecha_limite || new Date(t.fecha_limite) >= hoy)
+    .sort((a, b) => {
+      if (!a.fecha_limite) return 1
+      if (!b.fecha_limite) return -1
+      return new Date(a.fecha_limite) - new Date(b.fecha_limite)
+    })
+    .slice(0, 5)
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>📝</span>
+        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--wine-800)' }}>Actividades pendientes</h3>
+        {pendientes.length > 0 && (
+          <span style={{ marginLeft: 'auto', background: 'var(--wine-600)', color: 'white', borderRadius: '9999px', padding: '1px 8px', fontSize: '0.72rem', fontWeight: 700 }}>
+            {pendientes.length}
+          </span>
+        )}
+      </div>
+
+      {pendientes.length === 0 ? (
+        <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '0.5rem 0' }}>
+          ¡Sin pendientes! Estás al día.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {pendientes.map(t => {
+            const info = diasRestantes(t.fecha_limite)
+            return (
+              <Link
+                key={t.id}
+                to={`/courses/${t.unidades?.curso_id}/tareas/${t.id}`}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'var(--bg-page)', textDecoration: 'none', border: '1px solid var(--wine-100)' }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.titulo}</p>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.unidades?.cursos?.titulo ?? ''}</p>
+                </div>
+                {info && (
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: info.color, whiteSpace: 'nowrap', flexShrink: 0 }}>{info.label}</span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProximasFechasWidget({ tareas, quizzes }) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const eventos = [
+    ...tareas.map(t => ({ ...t, tipo: 'tarea' })),
+    ...quizzes.map(q => ({ ...q, tipo: 'quiz' })),
+  ]
+    .filter(e => e.fecha_limite && new Date(e.fecha_limite) >= hoy)
+    .sort((a, b) => new Date(a.fecha_limite) - new Date(b.fecha_limite))
+    .slice(0, 4)
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>📅</span>
+        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--wine-800)' }}>Próximas fechas</h3>
+        <Link to="/calendario" style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--wine-600)', textDecoration: 'none', fontWeight: 600 }}>Ver calendario →</Link>
+      </div>
+
+      {eventos.length === 0 ? (
+        <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '0.5rem 0' }}>
+          No hay fechas próximas registradas.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {eventos.map(e => {
+            const info = diasRestantes(e.fecha_limite)
+            const destino = e.tipo === 'tarea'
+              ? `/courses/${e.unidades?.curso_id}/tareas/${e.id}`
+              : `/courses/${e.unidades?.curso_id}/cuestionarios/${e.id}`
+            return (
+              <Link
+                key={`${e.tipo}-${e.id}`}
+                to={destino}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'var(--bg-page)', textDecoration: 'none', border: '1px solid var(--wine-100)' }}
+              >
+                <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{e.tipo === 'tarea' ? '📋' : '📝'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.titulo}</p>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.unidades?.cursos?.titulo ?? ''}</p>
+                </div>
+                {info && (
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: info.color, whiteSpace: 'nowrap', flexShrink: 0 }}>{info.label}</span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user, profile } = useAuth()
   const { isAdmin, isDocente, isEstudiante } = useRole()
@@ -122,6 +240,10 @@ export default function Dashboard() {
   // Calificaciones (solo estudiante)
   const [calificaciones, setCalificaciones] = useState([])
   const [generandoPDF, setGenerandoPDF] = useState(false)
+
+  // Widgets de pendientes y fechas (solo estudiante)
+  const [eventosDash, setEventosDash] = useState({ tareas: [], quizzes: [] })
+  const [entregasIds, setEntregasIds] = useState([])
 
   const displayName =
     profile?.nombre_completo ??
@@ -147,6 +269,14 @@ export default function Dashboard() {
         }
         const { data: cals } = await getTodasCalificacionesEstudiante(user.id)
         setCalificaciones(cals ?? [])
+
+        // Widgets: tareas pendientes y próximas fechas
+        const { tareas: tv = [], quizzes: qv = [] } = await getEventosCalendario(user.id, 'estudiante')
+        setEventosDash({ tareas: tv, quizzes: qv })
+        if (tv.length) {
+          const { data: ent } = await getMisEntregas(user.id, tv.map(t => t.id))
+          setEntregasIds((ent ?? []).map(e => e.tarea_id))
+        }
       } else if (isDocente) {
         res = await getCursosByDocente(user.id)
         if (!res.error) setCursos(res.data ?? [])
@@ -259,6 +389,19 @@ export default function Dashboard() {
 
         {/* Motivational Quote para Estudiantes */}
         {isEstudiante && <MotivationalQuote />}
+
+        {/* Widgets: actividades pendientes + próximas fechas (solo estudiante) */}
+        {isEstudiante && !loading && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem',
+          }}>
+            <ActividadesPendientesWidget tareas={eventosDash.tareas} entregasIds={entregasIds} />
+            <ProximasFechasWidget tareas={eventosDash.tareas} quizzes={eventosDash.quizzes} />
+          </div>
+        )}
 
         {/* Stats admin */}
         {isAdmin && adminStats && (

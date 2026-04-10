@@ -19,7 +19,7 @@ const getBase64ImageFromUrl = (imageUrl) => new Promise((resolve, reject) => {
   img.src = imageUrl
 })
 
-export default function CourseStudentsTab({ cursoId }) {
+export default function CourseStudentsTab({ cursoId, embedded = false }) {
   const [actas, setActas] = useState([])
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -131,12 +131,12 @@ export default function CourseStudentsTab({ cursoId }) {
   if (!actas || actas.length === 0) return <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '1rem' }}>No hay estudiantes activos en este curso todavía.</div>
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.75rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
+    <div style={embedded ? {} : { background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', padding: '1.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: embedded ? 'flex-end' : 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        {!embedded && <div>
           <h2 style={{ margin: '0 0 0.25rem', color: 'var(--wine-800)', fontSize: '1.2rem', fontWeight: 800 }}>Lista y Calificaciones</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Control general del aula</p>
-        </div>
+        </div>}
         <button
           onClick={handleGenerarPDF}
           disabled={isProcessing}
@@ -149,7 +149,7 @@ export default function CourseStudentsTab({ cursoId }) {
       <div style={{ overflowX: 'auto', borderRadius: '0.5rem', border: '1px solid var(--wine-100)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
           <thead>
-            <tr style={{ background: 'var(--wine-800)', color: 'white' }}>
+            <tr style={{ background: 'var(--navbar-bg)', color: 'white' }}>
               <th style={{ padding: '1rem' }}>Alumno</th>
               <th style={{ padding: '1rem' }}>Contacto</th>
               <th style={{ padding: '1rem' }}>Progreso</th>
@@ -159,7 +159,7 @@ export default function CourseStudentsTab({ cursoId }) {
           </thead>
           <tbody>
             {actas.map((a, i) => (
-              <tr key={a.inscripcion_id} style={{ borderBottom: '1px solid var(--wine-100)', background: i % 2 === 0 ? 'white' : 'var(--bg-page)' }}>
+              <tr key={a.inscripcion_id} style={{ borderBottom: '1px solid var(--wine-100)', background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-page)' }}>
                 <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--wine-900)' }}>{a.estudiante.nombre_completo}</td>
                 <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{a.estudiante.email}</td>
                 <td style={{ padding: '1rem' }}>

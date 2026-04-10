@@ -166,6 +166,82 @@ export async function desinscribirse(cursoId, estudianteId) {
     .eq('estudiante_id', estudianteId)
 }
 
+// ── Gestión de matrícula por docente/admin ──────────────────────────────────
+
+// Obtener estudiantes inscritos activos/finalizados de un curso
+export async function getEstudiantesCurso(cursoId) {
+  const { data, error } = await supabase
+    .from('inscripciones')
+    .select(`
+      id, estado, fecha_inscripcion,
+      estudiante:usuarios!inscripciones_estudiante_id_fkey(id, nombre_completo, email)
+    `)
+    .eq('curso_id', cursoId)
+    .in('estado', ['activa', 'finalizado'])
+    .order('fecha_inscripcion', { ascending: false })
+  return { data: data ?? [], error }
+}
+
+// Dar de baja a un estudiante del curso (cambia estado a cancelada)
+export async function removerEstudianteCurso(inscripcionId) {
+  return supabase
+    .from('inscripciones')
+    .update({ estado: 'cancelada' })
+    .eq('id', inscripcionId)
+}
+
+// Agregar un estudiante directamente al curso (reactiva o crea inscripción)
+export async function agregarEstudianteCurso(cursoId, estudianteId) {
+  const { data: existing } = await supabase
+    .from('inscripciones')
+    .select('id, estado')
+    .eq('curso_id', cursoId)
+    .eq('estudiante_id', estudianteId)
+    .maybeSingle()
+
+  if (existing) {
+    if (existing.estado === 'activa') {
+      return { data: null, error: { message: 'El estudiante ya está inscrito y activo.' } }
+    }
+    return supabase
+      .from('inscripciones')
+      .update({ estado: 'activa' })
+      .eq('id', existing.id)
+      .select().single()
+  }
+
+  return supabase
+    .from('inscripciones')
+    .insert({ curso_id: cursoId, estudiante_id: estudianteId, estado: 'activa' })
+    .select().single()
+}
+
+// Buscar usuarios para inscribir por nombre o correo (excluye ya inscritos)
+export async function buscarEstudiantesParaInscribir(cursoId, query) {
+  if (!query || query.trim().length < 2) return { data: [], error: null }
+
+  const { data: inscritos } = await supabase
+    .from('inscripciones')
+    .select('estudiante_id')
+    .eq('curso_id', cursoId)
+    .in('estado', ['activa', 'pendiente', 'finalizado'])
+
+  const inscritosIds = (inscritos ?? []).map(i => i.estudiante_id)
+  const q = query.trim()
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('id, nombre_completo, email')
+    .or(`nombre_completo.ilike.%${q}%,email.ilike.%${q}%`)
+    .limit(8)
+
+  const filtrados = inscritosIds.length > 0
+    ? (data ?? []).filter(u => !inscritosIds.includes(u.id))
+    : (data ?? [])
+
+  return { data: filtrados, error }
+}
+
 // Obtener todas las categorías
 export async function getCategorias() {
   return supabase

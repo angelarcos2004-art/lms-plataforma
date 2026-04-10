@@ -11,6 +11,7 @@ import {
 } from '../../lib/coursesService'
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import CourseStudentsTab from '../../components/courses/CourseStudentsTab'
+import CourseEnrollmentManager from '../../components/courses/CourseEnrollmentManager'
 import SalaVirtual from '../../components/courses/SalaVirtual'
 
 export default function CourseDetail() {
@@ -35,6 +36,8 @@ export default function CourseDetail() {
   const [copiado, setCopiado] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null)
+
+  const [tabAlumnos, setTabAlumnos] = useState('gestion')
 
   const esDocente = isDocente && curso?.docente_id === user?.id
   const puedeGestionar = esDocente || isAdmin
@@ -391,9 +394,42 @@ export default function CourseDetail() {
               />
             )}
 
-            {/* ── ALUMNOS Y CALIFICACIONES (solo docente/admin) ── */}
+            {/* ── PANEL ALUMNOS CON PESTAÑAS (solo docente/admin) ── */}
             {puedeGestionar && (
-              <CourseStudentsTab cursoId={id} />
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--wine-100)', borderRadius: '1rem', overflow: 'hidden' }}>
+                {/* Tab bar */}
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--wine-100)' }}>
+                  {[
+                    { key: 'gestion', label: 'Gestión de Alumnos' },
+                    { key: 'calificaciones', label: 'Lista y Calificaciones' },
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setTabAlumnos(tab.key)}
+                      style={{
+                        flex: 1, padding: '0.75rem 0.5rem',
+                        background: tabAlumnos === tab.key ? 'var(--bg-page)' : 'transparent',
+                        color: tabAlumnos === tab.key ? 'var(--wine-800)' : 'var(--text-secondary)',
+                        border: 'none',
+                        borderBottom: tabAlumnos === tab.key ? '2px solid var(--wine-600)' : '2px solid transparent',
+                        fontWeight: tabAlumnos === tab.key ? 700 : 500,
+                        fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        lineHeight: 1.3, textAlign: 'center',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Tab content */}
+                <div style={{ padding: '1.75rem' }}>
+                  {tabAlumnos === 'gestion'
+                    ? <CourseEnrollmentManager cursoId={id} embedded />
+                    : <CourseStudentsTab cursoId={id} embedded />
+                  }
+                </div>
+              </div>
             )}
 
           </div>

@@ -563,10 +563,17 @@ export default function AdminPanel() {
                             Revisar
                           </button>
                         ) : (
-                          <button onClick={async () => {
-                            if (!window.confirm('¿Borrar definitivamente este archivo de reporte?')) return
-                            await eliminarReporte(r.id)
-                            setReportes(prev => prev.filter(pr => pr.id !== r.id))
+                          <button onClick={() => {
+                            setConfirmModal({
+                              title: 'Eliminar Reporte',
+                              description: '¿Estás seguro de que deseas borrar definitivamente este archivo de reporte? Esta acción eliminará el registro permanentemente y no se puede deshacer.',
+                              confirmLabel: 'Sí, Borrar',
+                              onConfirm: async () => {
+                                await eliminarReporte(r.id)
+                                setReportes(prev => prev.filter(pr => pr.id !== r.id))
+                                setConfirmModal(null)
+                              }
+                            })
                           }} style={{ padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid var(--wine-200)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
                             Borrar
                           </button>

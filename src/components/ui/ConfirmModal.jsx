@@ -6,18 +6,19 @@ export default function ConfirmModal({ open, title, description, confirmLabel = 
       onClick={onCancel}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '1rem',
-        backdropFilter: 'blur(2px)',
+        backdropFilter: 'blur(4px)',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'white', borderRadius: '1.5rem',
+          background: 'var(--bg-card)', borderRadius: '1.5rem',
           padding: '2rem', maxWidth: '400px', width: '100%',
-          boxShadow: '0 32px 72px rgba(0,0,0,0.3)',
+          boxShadow: '0 32px 72px rgba(0,0,0,0.5)',
+          border: '1px solid var(--wine-200)'
         }}
       >
         {/* Icono */}
@@ -36,7 +37,7 @@ export default function ConfirmModal({ open, title, description, confirmLabel = 
         </div>
 
         {/* Título */}
-        <h3 style={{ margin: '0 0 0.5rem', textAlign: 'center', fontSize: '1.125rem', fontWeight: 800, color: 'var(--wine-800)' }}>
+        <h3 style={{ margin: '0 0 0.5rem', textAlign: 'center', fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)' }}>
           {title}
         </h3>
 
@@ -53,12 +54,12 @@ export default function ConfirmModal({ open, title, description, confirmLabel = 
             onClick={onCancel}
             style={{
               flex: 1, padding: '0.7rem', borderRadius: '0.75rem',
-              border: '1px solid var(--wine-100)', background: 'white',
-              color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.875rem',
-              cursor: 'pointer',
+              border: '1px solid var(--wine-200)', background: 'transparent',
+              color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.875rem',
+              cursor: 'pointer', transition: 'background 0.2s'
             }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-section)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             Cancelar
           </button>
@@ -68,7 +69,7 @@ export default function ConfirmModal({ open, title, description, confirmLabel = 
               flex: 1, padding: '0.7rem', borderRadius: '0.75rem',
               border: 'none', background: '#DC2626',
               color: 'white', fontWeight: 700, fontSize: '0.875rem',
-              cursor: 'pointer',
+              cursor: 'pointer', transition: 'background 0.2s'
             }}
             onMouseEnter={e => (e.currentTarget.style.background = '#B91C1C')}
             onMouseLeave={e => (e.currentTarget.style.background = '#DC2626')}

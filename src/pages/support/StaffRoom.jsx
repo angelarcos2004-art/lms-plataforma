@@ -154,12 +154,12 @@ export default function StaffRoom() {
 
         {/* Zona de Mensajes */}
         <div style={{
-          flex: 1, backgroundColor: '#e5ddd5', backgroundImage: 'url("https://w0.peakpx.com/wallpaper/818/148/HD-wallpaper-whatsapp-background-cool-dark-green-new-theme-whatsapp.jpg")', backgroundSize: 'cover', backgroundBlendMode: 'soft-light', padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative'
+          flex: 1, backgroundColor: 'var(--bg-section)', backgroundImage: 'url("https://w0.peakpx.com/wallpaper/818/148/HD-wallpaper-whatsapp-background-cool-dark-green-new-theme-whatsapp.jpg")', backgroundSize: 'cover', backgroundBlendMode: 'soft-light', padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative'
         }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--wine-800)', fontWeight: 600 }}>Cargando historial de chat...</div>
           ) : mensajes.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--wine-800)', background: 'rgba(255,255,255,0.8)', borderRadius: '8px', alignSelf: 'center', marginTop: 'auto', marginBottom: 'auto' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-primary)', background: 'var(--bg-card)', border: '1px solid var(--wine-200)', borderRadius: '8px', alignSelf: 'center', marginTop: 'auto', marginBottom: 'auto' }}>
               Este es el comienzo de la Sala de Profesores. Envía un mensaje.
             </div>
           ) : (
@@ -175,7 +175,7 @@ export default function StaffRoom() {
                 }}>
                   {!esPropio && renderAvatar(m.emisor?.nombre_completo, m.emisor?.rol)}
                   <div style={{
-                    background: esPropio ? '#dcf8c6' : '#ffffff',
+                    background: esPropio ? 'var(--wine-700)' : 'var(--bg-card)',
                     borderRadius: esPropio ? '8px 0 8px 8px' : '0 8px 8px 8px',
                     padding: '0.5rem 0.75rem',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
@@ -183,21 +183,21 @@ export default function StaffRoom() {
                   }}>
                     <span style={{ 
                       fontSize: '0.75rem', fontWeight: 800, 
-                      color: isAd ? '#D97706' : '#9f1239', 
+                      color: esPropio ? 'rgba(255,255,255,0.9)' : (isAd ? 'var(--warning)' : 'var(--wine-600)'), 
                       marginBottom: '0.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                     }}>
                       <span>{m.emisor?.nombre_completo || 'Usuario'}</span>
                       <span style={{
                         marginLeft: '0.5rem', padding: '2px 5px', borderRadius: '4px', fontSize: '0.65rem', 
-                        background: isAd ? 'rgba(217,119,6,0.1)' : 'rgba(159,18,57,0.1)'
+                        background: esPropio ? 'rgba(255,255,255,0.2)' : (isAd ? 'rgba(217,119,6,0.1)' : 'rgba(159,18,57,0.1)')
                       }}>
                         {isAd ? '🛡️ ADMIN' : '👨‍🏫 PROFESOR'}
                       </span>
                     </span>
-                    <span style={{ fontSize: '0.95rem', color: '#111', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                    <span style={{ fontSize: '0.95rem', color: esPropio ? 'white' : 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
                       {m.mensaje}
                     </span>
-                    <span style={{ fontSize: '0.65rem', color: '#666', alignSelf: 'flex-end', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.65rem', color: esPropio ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', alignSelf: 'flex-end', marginTop: '0.2rem' }}>
                       {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -209,16 +209,16 @@ export default function StaffRoom() {
         </div>
 
         {/* Creador de Mensaje */}
-        <div style={{ background: '#f0f0f0', padding: '1rem', borderRadius: '0 0 1rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flexShrink: 0 }}>
+        <div style={{ background: 'var(--bg-section)', padding: '1rem', borderRadius: '0 0 1rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flexShrink: 0 }}>
           <textarea
             value={nuevoMensaje}
             onChange={e => setNuevoMensaje(e.target.value)}
             placeholder="Escribe un mensaje al equipo..."
             rows={2}
             style={{
-              flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: 'none',
+              flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--wine-200)',
               outline: 'none', resize: 'none', fontSize: '0.95rem', fontFamily: 'inherit',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)', background: 'white'
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)', background: 'var(--bg-card)', color: 'var(--text-primary)'
             }}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {

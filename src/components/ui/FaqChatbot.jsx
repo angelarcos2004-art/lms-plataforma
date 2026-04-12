@@ -174,7 +174,7 @@ export default function FaqChatbot() {
       }}>
         {/* Cabecera */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--wine-700), var(--wine-900))',
+          background: 'linear-gradient(135deg, var(--wine-800), var(--wine-900))',
           padding: '1rem',
           display: 'flex',
           justifyContent: 'space-between',
@@ -207,7 +207,7 @@ export default function FaqChatbot() {
           {messages.map((m, idx) => (
             <div key={idx} style={{
               alignSelf: m.type === 'bot' ? 'flex-start' : 'flex-end',
-              background: m.type === 'bot' ? 'white' : 'var(--wine-600)',
+              background: m.type === 'bot' ? 'var(--bg-card)' : 'var(--wine-600)',
               color: m.type === 'bot' ? 'var(--text-primary)' : 'white',
               padding: '0.75rem 1rem',
               borderRadius: m.type === 'bot' ? '1rem 1rem 1rem 0' : '1rem 1rem 0 1rem',
@@ -224,7 +224,7 @@ export default function FaqChatbot() {
         </div>
 
         {/* Opciones interactivas si el último mensaje fue del bot (y al inicio) */}
-        <div style={{ background: 'white', padding: '1rem', borderTop: '1px solid var(--wine-100)' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '1rem', borderTop: '1px solid var(--wine-200)' }}>
           <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
             Selecciona una opción:
           </p>

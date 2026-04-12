@@ -175,7 +175,7 @@ export default function StaffRoom() {
                 }}>
                   {!esPropio && renderAvatar(m.emisor?.nombre_completo, m.emisor?.rol)}
                   <div style={{
-                    background: esPropio ? 'var(--wine-700)' : 'var(--bg-card)',
+                    background: esPropio ? 'var(--wine-800)' : 'var(--bg-card)',
                     borderRadius: esPropio ? '8px 0 8px 8px' : '0 8px 8px 8px',
                     padding: '0.5rem 0.75rem',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
